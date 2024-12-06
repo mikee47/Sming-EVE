@@ -86,6 +86,14 @@ Display-list commands are already well-defined since each entry is one 32-bit wo
 An integration for the *graphical editor* could support generation of these display lists directly from the scene descriptions.
 
 
+Converting audio and video
+--------------------------
+
+Convert source video sized to full-screen, mono audio::
+
+    ffmpeg -i big_buck_bunny_1080p_stereo.avi -s 800x480 -c:v mjpeg -ac 1 -c:a pcm_s16le big_bunny_full.avi
+
+
 References
 ----------
 
