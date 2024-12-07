@@ -11,17 +11,17 @@ class EveDisplay : public HSPI::MemoryDevice
 public:
 	struct Config {
 		uint16_t hcycle;	 ///< Th Total length of line (visible and non-visible) (in PCLKs)
-		uint16_t hoffset;	///< Thf + Thp + Thb Length of non-visible part of line (in PCLK cycles)
+		uint16_t hoffset;	 ///< Thf + Thp + Thb Length of non-visible part of line (in PCLK cycles)
 		uint16_t hsize;		 ///< Thd Length of visible part of line (in PCLKs) - display width
 		uint16_t hsync0;	 ///< Thf Horizontal Front Porch
 		uint16_t hsync1;	 ///< Thf + Thp Horizontal Front Porch plus Hsync Pulse width
 		uint16_t vcycle;	 ///< Tv Total number of lines (visible and non-visible) (in lines)
-		uint16_t voffset;	///< Tvf + Tvp + Tvb Number of non-visible lines (in lines)
+		uint16_t voffset;	 ///< Tvf + Tvp + Tvb Number of non-visible lines (in lines)
 		uint16_t vsize;		 ///< Tvd Number of visible lines (in lines) - display height
 		uint16_t vsync0;	 ///< Tvf Vertical Front Porch
 		uint16_t vsync1;	 ///< Tvf + Tvp Vertical Front Porch plus Vsync Pulse width
 		uint8_t swizzle : 4; ///< Output RGB signal swizzle
-		uint8_t extclk : 1;  ///< Enable external clock input, default is internal (0)
+		uint8_t extclk : 1;	 ///< Enable external clock input, default is internal (0)
 		uint8_t cspread : 1; ///< Output clock spreading enable
 		uint8_t pclkpol : 1; ///< PCLK polarity; false=rising edge, true=rising edge
 		uint8_t pclk;		 ///< PCLK frequency divider, 0=disable
