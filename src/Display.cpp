@@ -8,7 +8,8 @@ using namespace EVE;
 
 bool EveDisplay::begin(HSPI::PinSet pinSet, uint8_t chipSelect, uint32_t spiClockSpeed, const Config& config)
 {
-	if(!MemoryDevice::begin(pinSet, chipSelect, spiClockSpeed)) {
+	const uint32_t initClockSpeed{8'000'000};
+	if(!MemoryDevice::begin(pinSet, chipSelect, std::min(initClockSpeed, spiClockSpeed))) {
 		return false;
 	}
 	setBitOrder(MSBFIRST);
@@ -102,6 +103,8 @@ bool EveDisplay::begin(HSPI::PinSet pinSet, uint8_t chipSelect, uint32_t spiCloc
 
 	// enable LCD DISP signal
 	write8(REG_GPIO, 0x80);
+
+	setClockSpeed(spiClockSpeed);
 
 	return true;
 }
