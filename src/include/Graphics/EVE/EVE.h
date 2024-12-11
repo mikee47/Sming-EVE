@@ -159,6 +159,10 @@ enum BitmapFormat {
 	BMF_TEXT8X8 = 9,
 	BMF_TEXTVGA = 10,
 	BMF_BARGRAPH = 11,
+	BMF_PALETTED565 = 14,
+	BMF_PALETTED4444 = 15,
+	BMF_PALETTED8 = 16,
+	BMF_L2 = 17,
 };
 
 /* DL_BITMAP_SIZE filter types */
@@ -231,13 +235,6 @@ enum GraphicsPrimitive {
 	GP_EDGE_STRIP_A = 7,
 	GP_EDGE_STRIP_B = 8,
 	GP_RECTS = 9,
-	GP_INT_G8 = 18,
-	GP_INT_L8C = 12,
-	GP_INT_VGA = 13,
-	GP_PALETTED565 = 14,
-	GP_PALETTED4444 = 15,
-	GP_PALETTED8 = 16,
-	GP_L2 = 17,
 };
 
 /* Widget command options */

@@ -155,7 +155,7 @@ class REG(IntEnum):
 
 
 '''Graphics primitives (BEGIN)'''
-class GP(IntEnum):
+class GraphicsPrimitive(IntEnum):
 	BITMAPS = 1
 	POINTS = 2
 	LINES = 3
@@ -173,6 +173,7 @@ class GP(IntEnum):
 	PALETTED8 = 16
 	L2 = 17
 
+GP = GraphicsPrimitive
 
 '''Bitmap formats'''
 class BitmapFormat(IntEnum):
@@ -202,10 +203,25 @@ class BitmapWrap(IntEnum):
 	REPEAT = 1
 
 
+'''BLEND_FUNC types'''
+class BlendFunction(IntEnum):
+    ZERO = 0
+    ONE = 1
+    SRC_ALPHA = 2
+    DST_ALPHA = 3
+    ONE_MINUS_SRC_ALPHA = 4
+    ONE_MINUS_DST_ALPHA = 5
+
+
 @dataclass
 class Type:
     name: str
     bitcount: int
+    signed: bool = False
+
+    @property
+    def is_int(self):
+        return 'int' in self.name
 
 
 @dataclass
@@ -213,13 +229,48 @@ class Param:
     name: str
     typedef: Type
     desc: str = None
-    bitcount: int = None # Takes precedence over type definition
+    stored_bits: int = None # Takes precedence over type definition
     offset: int = None # Calculated when this unit is initialised
 
     @property
+    def bitcount(self):
+        return self.stored_bits or self.typedef.bitcount
+
+    @property
     def size(self):
-        bitcount = self.bitcount or self.typedef.bitcount
-        return align(bitcount, 16) // 8
+        return align(self.bitcount, 16) // 8
+
+    @property
+    def basetype(self):
+        sign = '' if self.typedef.signed else 'u'
+        return f'{sign}int32_t' if self.size == 4 else f'{sign}int16_t'
+
+    def pack(self, arg) -> bytes:
+        if self.typedef is CString:
+            arg = arg.encode() + b'\0'
+            return arg.ljust(align(len(arg)), b'\0')
+        if self.typedef in [Fixed15_8, Fixed16_16]:
+            arg = int(arg * 65536)
+        elif self.typedef is Fixed8_8:
+            arg = int(arg * 256)
+        if self.size == 2:
+            return struct.pack('<H', arg)
+        if self.typedef.signed:
+            return struct.pack('<l', arg)
+        return struct.pack('<L', arg)
+
+    def unpack(self, data: bytes) -> int:
+        if self.size == 2:
+            return struct.unpack('<H', data[:2])[0]
+        if self.typedef.signed:
+            value = struct.unpack('<l', data[:4])[0]
+            if self.typedef in [Fixed15_8, Fixed16_16]:
+                return value / 65536
+            if self.typedef is Fixed8_8:
+                return value / 256
+            return value
+        return struct.unpack('<L', data[:4])[0]
+
 
 
 @dataclass
@@ -232,6 +283,11 @@ class CommandDef:
     def get_cmdword(self, param: int):
         assert param >= 0 and param <= 0x00ffffff
         return (self.code << 24) | param
+
+    @property
+    def total_bits(self):
+        return sum(param.bitcount for param in self.params or [])
+
 
 
 @dataclass
@@ -249,7 +305,7 @@ class DlCmd(CommandDef):
         off = 0
         # print('>', self.name, hex(cmdword))
         for param in self.params or []:
-            bitcount = param.bitcount or param.typedef.bitcount
+            bitcount = param.bitcount
             mask = (1 << bitcount) - 1
             value = (cmdword >> off) & mask
             args.append(Arg(param, value))
@@ -259,11 +315,12 @@ class DlCmd(CommandDef):
     def pack(self, *args):
         assert len(self.params or []) == len(args)
         value = 0
-        shift = 0
         for param, arg in zip(reversed(self.params or []), args):
-            value <<= shift
-            value |= arg
-            shift = param.bitcount or param.typedef.bitcount
+            value <<= param.bitcount
+            mask = (1 << param.bitcount) - 1
+            if arg > mask:
+                raise ValueError(f'{param.cmd} out of range: {arg}')
+            value |= int(arg) & mask
         value |= self.code << 24
         return struct.pack('<L', value)
 
@@ -273,24 +330,23 @@ ColorChannel = Type('ColorChannel', 8)
 Tag = Type('Tag', 8)
 Handle = Type('Handle', 5)
 Cell = Type('Cell', 7)
-PixelFormat = Type('PixelFormat', 5)
-Boolean = Type('Boolean', 1)
+Boolean = Type('bool', 1)
 TestFunction = Type('TestFunction', 4)
-BlendFunction = Type('BlendFunction', 3)
 StencilOp = Type('StencilOp', 3)
-Fixed8_8 = Type('Fixed8_8', 17)
+Fixed8_8 = Type('Fixed8_8', 17, signed=True)
+Fixed15_8 = Type('Fixed15_8', 24, signed=True)
 DisplayListOffset = Type('DisplayListOffset', 16)
-Primitive = Type('Primitive', 4)
 
 # Used with co-processor commands
 RGB = Type('RGB', 24)
+ARGB = Type('ARGB', 32)
 UInt8 = Type('uint8_t', 8)
-Int16 = Type('int16_t', 16)
+Int16 = Type('int16_t', 16, signed=True)
 UInt16 = Type('uint16_t', 16)
-Int32 = Type('int32_t', 32)
+Int32 = Type('int32_t', 32, signed=True)
 UInt32 = Type('uint32_t', 32)
 CString = Type('CString', 0) # Variable length, NUL terminated
-Fixed16_16 = Type('Fixed16_16', 32)
+Fixed16_16 = Type('Fixed16_16', 32, signed=True)
 Angle = Type('Angle', 32) # Units of 1/65536 of a circle
 Options = Type('Options', 16)
 
@@ -339,8 +395,8 @@ DisplayListCommands: list[DlCmd] = [
 For example, if the bitmap format is RGB565/ARGB4/ARGB1555, the bitmap source shall be aligned to 2 bytes.''')
     ]),
 	DlCmd(0x02, 'CLEAR_COLOR_RGB', 'Specify clear values for red, green and blue channels', [
-        Param('green', ColorChannel),
         Param('blue', ColorChannel),
+        Param('green', ColorChannel),
         Param('red', ColorChannel),
     ]),
 	DlCmd(0x03, 'TAG', '''Attach the tag value for the following graphics objects drawn on the screen.
@@ -348,8 +404,8 @@ The initial tag buffer value is 255.''', [
         Param('tag', Tag, '''Tag value. Valid value range is from 1 to 255.''')
     ]),
 	DlCmd(0x04, 'COLOR_RGB', 'Set the current color red, green and blue.', [
-        Param('green', ColorChannel),
         Param('blue', ColorChannel),
+        Param('green', ColorChannel),
         Param('red', ColorChannel),
     ]),
 	DlCmd(0x05, 'BITMAP_HANDLE', 'Specify the bitmap handle', [
@@ -359,39 +415,39 @@ The initial tag buffer value is 255.''', [
         Param('cell', Cell, 'Bitmap cell number. The initial value is 0.')
     ]),
 	DlCmd(0x07, 'BITMAP_LAYOUT', 'Specify the source bitmap memory format and layout for the current handle.', [
-        Param('height', Type(None, 9)),
-        Param('linestride', Type(None, 10)),
-        Param('format', PixelFormat)
+        Param('height', UInt32, stored_bits=9),
+        Param('linestride', UInt32, stored_bits=10),
+        Param('format', Type('BitmapFormat', 5))
     ]),
 	DlCmd(0x08, 'BITMAP_SIZE', 'Specify the screen drawing of bitmaps for the current handle', [
-        Param('height', Type(None, 9)),
-        Param('width', Type(None, 9)),
-        Param('wrapy', Boolean),
-        Param('wrapx', Boolean),
-        Param('filter', Boolean)
+        Param('height', UInt32, stored_bits=9),
+        Param('width', UInt32, stored_bits=9),
+        Param('wrapy', Type('BitmapWrap', 1)),
+        Param('wrapx', Type('BitmapWrap', 1)),
+        Param('filter', Type('BitmapFilter', 1))
     ]),
 	DlCmd(0x09, 'ALPHA_FUNC', 'Specify the alpha test function', [
-        Param('ref', Type(None, 8)),
+        Param('ref', UInt8),
         Param('func', TestFunction)
     ]),
 	DlCmd(0x0A, 'STENCIL_FUNC', 'Set function and reference value for stencil testing.', [
-        Param('mask', Type(None, 8)),
-        Param('ref', Type(None, 8)),
+        Param('mask', UInt8),
+        Param('ref', UInt8),
         Param('func', TestFunction)
     ]),
 	DlCmd(0x0B, 'BLEND_FUNC', 'Specify pixel arithmetic', [
-        Param('dst', BlendFunction),
-        Param('src', BlendFunction)
+        Param('dst', Type('BlendFunction', 3)),
+        Param('src', Type('BlendFunction', 3))
     ]),
 	DlCmd(0x0C, 'STENCIL_OP', 'Set stencil test actions', [
         Param('spass', StencilOp),
         Param('sfail', StencilOp)
     ]),
 	DlCmd(0x0D, 'POINT_SIZE', 'Specify the radius of points', [
-        Param('size', Type(None, 13))
+        Param('size', UInt32, stored_bits=13)
     ]),
 	DlCmd(0x0E, 'LINE_WIDTH', 'Specify the width of lines to be drawn with primitive LINES in 1/16 pixel precision.', [
-        Param('width', Type(None, 12))
+        Param('width', UInt32, stored_bits=12)
     ]),
 	DlCmd(0x0F, 'CLEAR_COLOR_A', 'Specify clear value for the alpha channel', [
         Param('alpha', ColorChannel)
@@ -406,7 +462,7 @@ The initial tag buffer value is 255.''', [
         Param('tag', Tag)
     ]),
 	DlCmd(0x13, 'STENCIL_MASK', 'Control the writing of individual bits in the stencil planes', [
-        Param('mask', Type(None, 8))
+        Param('mask', UInt8)
     ]),
 	DlCmd(0x14, 'TAG_MASK', 'Control the writing of the tag buffer', [
         Param('mask', Boolean, '''Allow updates to the tag buffer.
@@ -421,7 +477,7 @@ The value zero means the tag buffer is set as the default value, rather than the
         Param('b', Fixed8_8)
     ]),
 	DlCmd(0x17, 'BITMAP_TRANSFORM_C',  'Specify the C coefficient of the bitmap transform matrix', [
-        Param('c', Fixed8_8)
+        Param('c', Fixed15_8)
     ]),
 	DlCmd(0x18, 'BITMAP_TRANSFORM_D',  'Specify the D coefficient of the bitmap transform matrix', [
         Param('d', Fixed8_8)
@@ -430,15 +486,15 @@ The value zero means the tag buffer is set as the default value, rather than the
         Param('e', Fixed8_8)
     ]),
 	DlCmd(0x1A, 'BITMAP_TRANSFORM_F',  'Specify the F coefficient of the bitmap transform matrix', [
-        Param('f', Fixed8_8)
+        Param('f', Fixed15_8)
     ]),
 	DlCmd(0x1B, 'SCISSOR_XY', 'Specify the top left corner of the scissor clip rectangle', [
-        Param('y', Type(None, 11)),
-        Param('x', Type(None, 11))
+        Param('y', UInt32, stored_bits=11),
+        Param('x', UInt32, stored_bits=11),
     ]),
 	DlCmd(0x1C, 'SCISSOR_SIZE', 'Specify the size of the scissor clip rectangle', [
-        Param('height', Type(None, 12)),
-        Param('width', Type(None, 12)),
+        Param('height', UInt32, stored_bits=12),
+        Param('width', UInt32, stored_bits=12),
     ]),
 	DlCmd(0x1D, 'CALL', 'Execute a sequence of commands at another location in the display list', [
         Param('dest', DisplayListOffset)
@@ -447,7 +503,7 @@ The value zero means the tag buffer is set as the default value, rather than the
         Param('dest', DisplayListOffset)
     ]),
 	DlCmd(0x1F, 'BEGIN', 'Begin drawing a graphics primitive', [
-        Param('prim', Primitive)
+        Param('prim', Type('GraphicsPrimitive', 4))
     ]),
 	DlCmd(0x20, 'COLOR_MASK', 'Enable or disable writing of color components', [
         Param('a', Boolean),
@@ -461,7 +517,7 @@ It is recommended to have an END for each BEGIN. However, advanced users may avo
 	DlCmd(0x23, 'RESTORE_CONTEXT', 'Restore the current graphics context from the context stack.'),
 	DlCmd(0x24, 'RETURN', 'Return from a previous CALL command'),
 	DlCmd(0x25, 'MACRO', 'Execute a single command from a macro register', [
-        Param('m', Type(None, 1))
+        Param('m', UInt32, stored_bits=1)
     ]),
 	DlCmd(0x26, 'CLEAR', 'Clear buffers to preset values', [
         Param('t', Boolean, 'Clear tag buffer'),
@@ -469,36 +525,36 @@ It is recommended to have an END for each BEGIN. However, advanced users may avo
         Param('c', Boolean, 'Clear color buffer'),
     ]),
 	DlCmd(0x27, 'VERTEX_FORMAT', 'Set the precision of VERTEX2F coordinates', [
-        Param('frac', Type(None, 3))
+        Param('frac', UInt32, stored_bits=3)
     ]),
 	DlCmd(0x28, 'BITMAP_LAYOUT_H', 'Specify the 2 most significant bits of the source bitmap memory format and layout for the current handle.', [
-        Param('height', Type(None, 2)),
-        Param('linestride', Type(None, 2)),
+        Param('height', UInt32, stored_bits=2),
+        Param('linestride', UInt32, stored_bits=2),
     ]),
 	DlCmd(0x29, 'BITMAP_SIZE_H', 'Specify the 2 most significant bits of bitmaps dimension for the current handle.', [
-        Param('height', Type(None, 2)),
-        Param('width', Type(None, 2)),
+        Param('height', UInt32, stored_bits=2),
+        Param('width', UInt32, stored_bits=2),
     ]),
 	DlCmd(0x2A, 'PALETTE_SOURCE', 'Specify the base address of the palette', [
         Param('addr', Address)
     ]),
 	DlCmd(0x2B, 'VERTEX_TRANSLATE_X', 'Specify the vertex transformations X translation component', [
-        Param('x', Type(None, 17))
+        Param('x', UInt32, stored_bits=17)
     ]),
 	DlCmd(0x2C, 'VERTEX_TRANSLATE_Y', 'Specify the vertex transformation’s Y translation component', [
-        Param('y', Type(None, 17))
+        Param('y', UInt32, stored_bits=17)
     ]),
 	DlCmd(0x2D, 'NOP', 'No operation'),
 	# Top 2 bits reserved for these commands
     DlCmd(0x40, 'VERTEX2F', 'Start the operation of graphics primitives at the specified screen coordinate, in the pixel precision defined by VERTEX_FORMAT.', [
-        Param('y', Type(None, 15)),
-        Param('x', Type(None, 15)),
+        Param('y', UInt32, stored_bits=15),
+        Param('x', UInt32, stored_bits=15),
     ]),
 	DlCmd(0x80, 'VERTEX2II', 'Start the operation of graphics primitive at the specified coordinates in pixel precision', [
         Param('cell', Cell),
         Param('handle', Handle),
-        Param('y', Type(None, 9)),
-        Param('x', Type(None, 9)),
+        Param('y', UInt32, stored_bits=9),
+        Param('x', UInt32, stored_bits=9),
     ]),
 ]
 
@@ -524,10 +580,8 @@ class CpCmd(CommandDef):
                 print('CString', param_size)
                 value = data[off:off+param_size].decode()
                 param_size += 1 # NUL
-            elif param.size == 2:
-                value, = struct.unpack('<H', data[off:off+2])
             else:
-                value, = struct.unpack('<L', data[off:off+4])
+                value = param.unpack(data[off:])
             args.append(Arg(param, value))
             size = align(off + param_size)
         return args, size
@@ -540,14 +594,9 @@ class CpCmd(CommandDef):
                 length_param = param.typedef.length_param
                 length_arg = next(x for x in args if x.param.name == length_param)
                 assert length_arg.value == len(arg)
-                result += arg
-            elif param.typedef is CString:
-                arg = arg.encode() + b'\0'
-                result += arg
-            elif param.size == 2:
-                result += struct.pack('<H', arg)
+                result += param.pack(arg)
             else:
-                result += struct.pack('<L', arg)
+                result += param.pack(arg)
         return result.ljust(align(len(result)), b'\0')
 
     @property
@@ -575,7 +624,7 @@ Internally, the coprocessor engine implements this command by writing to REG_DLS
 This coprocessor engine command will not generate any display list command into display list memory RAM_DL. It is expected to be used with CMD_DLSTART in pair.'''),
 	CpCmd(0x02, 'INTERRUPT', '''This command is used to trigger Interrupt CMDFLAG.
 When the coprocessor engine executes this command, it triggers interrupt, which will set the bit field CMDFLAG of REG_INT_FLAGS, unless the corresponding bit in REG_INT_MASK is zero.''', [
-        Param('ms', Type(None, 32))
+        Param('ms', UInt32)
     ]),
 	CpCmd(0x09, 'BGCOLOR', 'Set the background color', [
         Param('color', RGB)
@@ -594,7 +643,7 @@ When the coprocessor engine executes this command, it triggers interrupt, which 
 	Widget(0x0C, 'TEXT', '', [
         Param('x', Int16),
         Param('y', Int16),
-        Param('font', Handle, bitcount=16),
+        Param('font', Handle, stored_bits=16),
         Param('options', Options),
         Param('s', CString)
     ]),
@@ -817,7 +866,7 @@ When the coprocessor engine executes this command, it triggers interrupt, which 
         Param('handle', Handle, 'Default is 15')
     ]),
 	CpCmd(0x3F, 'ROMFONT', 'Load a ROM font into a bitmap handle', [
-        Param('font', Handle, bitcount=32),
+        Param('font', Handle, stored_bits=32),
         Param('romslot', UInt8)
     ]),
 	CpCmd(0x40, 'VIDEOSTART', 'Initialise video frame decoder'),
@@ -830,6 +879,14 @@ When the coprocessor engine executes this command, it triggers interrupt, which 
         Param('fmt', UInt8),
         Param('width', UInt16),
         Param('height', UInt16),
+    ]),
+	Widget(0x57, 'GRADIENTA', 'BT88x only', [
+        Param('x0', Int16),
+        Param('y0', Int16),
+        Param('argb0', ARGB),
+        Param('x1', Int16),
+        Param('y1', Int16),
+        Param('argb1', ARGB),
     ]),
 ]
 
