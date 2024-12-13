@@ -1,5 +1,6 @@
 import eve
 from eve import align
+from fonts import fonts
 import parse
 import struct
 import binascii
@@ -333,15 +334,88 @@ def stream_video_file(socket: Socket, filename: str):
             socket.send(eve.REG.CMDB_WRITE, data)
 
 
+def fix16(x):
+    return round(x * 65536)
+
+def font_test(socket):
+    xo, yo = 400, 240
+    text = 'Now is the time for all good bits to come to the aid of the parity . . . .'
+    spacing = 0
+
+    handle = 31
+    font_slot = 31
+    # font_slot = 25
+    # font_slot = 23
+    # font_slot = 20
+
+    font = fonts[font_slot - 16]
+    tx, ty = font.width/2, font.height/2
+    print(font)
+
+    dlist = [
+        make_cmd(eve.CMD.DLSTART),
+        make_cmd(eve.DL.CLEAR, 1, 1, 1),
+        # make_cmd(eve.DL.COLOR_A, 150),
+
+        make_cmd(eve.CMD.ROMFONT, handle, font_slot),
+        make_cmd(eve.DL.VERTEX_TRANSLATE_X, xo*16),
+        make_cmd(eve.DL.VERTEX_TRANSLATE_Y, yo*16),
+        make_cmd(eve.DL.VERTEX_FORMAT, 0),
+        make_cmd(eve.DL.BITMAP_HANDLE, handle),
+    ]
+
+    words = iter(text.split())
+    for angle in range(0, 360, 20):
+        dlist += [
+            make_cmd(eve.CMD.LOADIDENTITY),
+            make_cmd(eve.CMD.TRANSLATE, fix16(tx), fix16(ty)),
+            make_cmd(eve.CMD.ROTATE, (angle * 65536 // 360) & 0xffff),
+            make_cmd(eve.CMD.TRANSLATE, fix16(-tx), fix16(-ty)),
+            make_cmd(eve.CMD.SETMATRIX),
+            make_cmd(eve.DL.COLOR_RGB, angle*200//360, 0, 200 - (angle * 200 // 360)),
+            make_cmd(eve.DL.BEGIN, eve.GP.BITMAPS),
+        ]
+
+        off = font.height * 2.5
+        ar = 2 * math.pi * angle / 360
+        ax, ay = math.cos(ar), math.sin(ar)
+        for c in next(words):
+            char_width = font.char_widths[ord(c)]
+            x = round(off * ax)
+            y = round(off * ay)
+            dlist += [
+                make_cmd(eve.DL.CELL, ord(c)),
+                make_cmd(eve.DL.VERTEX2F, x, y)
+            ]
+            off += char_width + spacing
+
+        dlist += [
+            make_cmd(eve.DL.END)
+        ]
+
+    dlist += [
+        make_cmd(eve.DL.VERTEX_TRANSLATE_X, 0),
+        make_cmd(eve.DL.VERTEX_TRANSLATE_Y, 0),
+        make_cmd(eve.CMD.LOADIDENTITY),
+        make_cmd(eve.CMD.SETMATRIX),
+        make_cmd(eve.CMD.TEXT, 10, 10, 31, 0, 'Hello there!'),
+        make_cmd(eve.DL.DISPLAY),
+        make_cmd(eve.CMD.SWAP),
+    ]
+    parse.parse(b''.join(dlist))
+    print(f'dlist length {len(dlist)}')
+    socket.send_cmdlist(dlist)
+
+
+
 def main():
     # data = b''.join(TEST_DISPLAYLIST_1)
     # parse.hexdump(data)
 
-
     socket = Socket()
     socket.connect('ws://192.168.1.175/ws')
 
-    stream_video_file(socket, '/home/mike/.wine/drive_c/Apps/ESE/Examples/FT81X/assets/big_bunny.avi')
+    font_test(socket)
     return
 
     if True:
