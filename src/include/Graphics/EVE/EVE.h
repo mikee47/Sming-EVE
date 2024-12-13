@@ -45,7 +45,7 @@ namespace Graphics::EVE
 constexpr uint32_t EVE_RAM_G = 0x00000000;
 constexpr uint32_t EVE_ROM_CHIPID = 0x000C0000;
 constexpr uint32_t EVE_ROM_FONT = 0x001E0000;
-constexpr uint32_t EVE_ROM_FONTROOT = 0x002FFFFC;
+constexpr uint32_t EVE_ROM_FONT_ADDR = 0x002FFFFC;
 constexpr uint32_t EVE_RAM_DL = 0x00300000;
 constexpr uint32_t EVE_RAM_REG = 0x00302000;
 constexpr uint32_t EVE_RAM_CMD = 0x00308000;
@@ -628,6 +628,20 @@ enum Register : uint32_t {
 	REG_MEDIAFIFO_READ = 0x00309014,
 	REG_MEDIAFIFO_WRITE = 0x00309018,
 };
+
+/**
+ * @brief Font description
+ */
+struct FontMetrics {
+	uint8_t char_width[128]; ///< Width of each character font in pixels
+	uint32_t format;		 ///< Bitmap format of font wrt bitmap formats supported by FT800 - L1, L4, L8
+	uint32_t stride;		 ///< Font line stride in FT800 ROM
+	uint32_t width;			 ///< Font width in pixels
+	uint32_t height;		 ///< Font height in pixels
+	uint32_t bitmap;		 ///< Pointer to font graphics raw data
+};
+
+extern const FontMetrics romfonts[];
 
 /* Macros for static display list generation */
 
