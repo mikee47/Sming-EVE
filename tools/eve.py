@@ -16,7 +16,7 @@ import enum
 EVE_RAM_G = 0x00000000
 EVE_ROM_CHIPID = 0x000C0000
 EVE_ROM_FONT = 0x001E0000
-EVE_ROM_FONTROOT = 0x002FFFFC
+EVE_ROM_FONT_ADDR = 0x002FFFFC
 EVE_RAM_DL = 0x00300000
 EVE_RAM_REG = 0x00302000
 EVE_RAM_CMD = 0x00308000
@@ -201,6 +201,16 @@ class BitmapFilter(IntEnum):
 class BitmapWrap(IntEnum):
 	BORDER = 0
 	REPEAT = 1
+
+
+@dataclass
+class FontMetrics:
+    char_widths: list[int]
+    format: int
+    stride: int
+    width: int
+    height: int
+    bitmap: int
 
 
 '''BLEND_FUNC types'''
