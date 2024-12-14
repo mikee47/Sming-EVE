@@ -168,9 +168,19 @@ class Socket:
     def connect(self, url: str):
         self.websocket = connect(url)
 
-    def recv(self, addr: int, size: int) -> bytes:
-        self.websocket.send(struct.pack('<LLL', Socket.MAGIC_READ, addr, size))
-        return self.websocket.recv()
+    def read(self, addr: int, size: int) -> bytes:
+        res = b''
+        while size:
+            len = min(size, 1024)
+            self.websocket.send(struct.pack('<LLL', Socket.MAGIC_READ, addr, len))
+            res += self.websocket.recv()
+            addr += len
+            size -= len
+        return res
+
+    def read32(self, addr: int) -> int:
+        data = self.read(addr, 4)
+        return struct.unpack('<L', data)[0]
 
     def send(self, addr: int, data: bytes):
         print(f'SEND addr 0x{addr:x}, len {len(data)}')
@@ -191,7 +201,7 @@ class Socket:
             cmdlist = b''.join(cmdlist)
         self.send(eve.REG.CMDB_WRITE, cmdlist)
 
-    def write_reg(self, addr: int, value: int):
+    def write32(self, addr: int, value: int):
         self.send(addr, struct.pack('<L', value))
 
 
@@ -303,7 +313,7 @@ def stream_video_file1(socket: Socket, filename: str):
         while True:
             data = f.read(CHUNK_SIZE)
             socket.send(FIFO_ADDR + (writepos % FIFO_SIZE), data)
-            socket.write_reg(eve.REG.MEDIAFIFO_WRITE, (writepos + CHUNK_SIZE) % FIFO_SIZE)
+            socket.write32(eve.REG.MEDIAFIFO_WRITE, (writepos + CHUNK_SIZE) % FIFO_SIZE)
             writepos += CHUNK_SIZE
             if not running:
                 if writepos >= FIFO_SIZE // 2:
@@ -334,13 +344,11 @@ def stream_video_file(socket: Socket, filename: str):
             socket.send(eve.REG.CMDB_WRITE, data)
 
 
-def fix16(x):
-    return round(x * 65536)
-
 def font_test(socket):
     xo, yo = 400, 240
     text = 'Now is the time for all good bits to come to the aid of the parity . . . .'
     spacing = 0
+    start_angle = 65536 * 90 // 360
 
     handle = 31
     font_slot = 31
@@ -364,25 +372,31 @@ def font_test(socket):
         make_cmd(eve.DL.BITMAP_HANDLE, handle),
     ]
 
+
     words = iter(text.split())
-    for angle in range(0, 360, 20):
+    for angle in range(0, 65536, 4096):
+        a = (angle + start_angle) & 0xffff
         dlist += [
             make_cmd(eve.CMD.LOADIDENTITY),
-            make_cmd(eve.CMD.TRANSLATE, fix16(tx), fix16(ty)),
-            make_cmd(eve.CMD.ROTATE, (angle * 65536 // 360) & 0xffff),
-            make_cmd(eve.CMD.TRANSLATE, fix16(-tx), fix16(-ty)),
+            make_cmd(eve.CMD.TRANSLATE, tx, ty),
+            make_cmd(eve.CMD.SCALE, 0.8, 0.8),
+            make_cmd(eve.CMD.ROTATE, a),
+            make_cmd(eve.CMD.TRANSLATE, -tx, -ty),
             make_cmd(eve.CMD.SETMATRIX),
-            make_cmd(eve.DL.COLOR_RGB, angle*200//360, 0, 200 - (angle * 200 // 360)),
+            make_cmd(eve.DL.COLOR_RGB, angle*200//65536, 0, 200 - (angle * 200 // 65536)),
             make_cmd(eve.DL.BEGIN, eve.GP.BITMAPS),
         ]
 
-        off = font.height * 2.5
-        ar = 2 * math.pi * angle / 360
+        base = font.height * 2
+        off = 0
+        ar = 2 * math.pi * a / 65536
         ax, ay = math.cos(ar), math.sin(ar)
+        xb = round(base * ax * 1.8)
+        yb = round(base * ay * 1.2)
         for c in next(words):
             char_width = font.char_widths[ord(c)]
-            x = round(off * ax)
-            y = round(off * ay)
+            x = round(xb + off * ax)
+            y = round(yb + off * ay)
             dlist += [
                 make_cmd(eve.DL.CELL, ord(c)),
                 make_cmd(eve.DL.VERTEX2F, x, y)
@@ -407,6 +421,163 @@ def font_test(socket):
     socket.send_cmdlist(dlist)
 
 
+def dump_fonts(socket):
+    rom_font_addr = socket.read32(eve.EVE_ROM_FONT_ADDR)
+    print(f'rom_font_addr = 0x{rom_font_addr:06x}')
+    METRICS_SIZE = 148
+    FONT_COUNT = 19
+    metrics = socket.read(rom_font_addr, METRICS_SIZE * FONT_COUNT)
+    for i in range(FONT_COUNT):
+        off = i * METRICS_SIZE
+        fields = struct.unpack('<128s5L', metrics[off:off+METRICS_SIZE])
+        font = eve.FontMetrics(list(fields[0]), *fields[1:])
+        print(f'ROM font #{i+16} @ 0x{rom_font_addr + off:06x}:')
+        print(font)
+    # parse.hexdump(metrics)
+
+
+def dump_rom(socket):
+    addr = eve.EVE_ROM_FONT
+    size = 0x300000 - addr
+    # addr, size = 0x200000, 0x100000
+    print(f'@{addr:06x} -> {addr+size-1:06x}:')
+    data = socket.read(addr, size)
+    parse.hexdump(data, addr)
+
+
+def button_test(socket):
+    BMPSRC_BUTTON = 0x20004c
+    BMPSRC_GRADIENT = 0x200065
+
+    if False:
+        print('BMP BUTTON')
+        # LAYOUT = L8, 1, 25
+        bmp_button = socket.read(BMPSRC_BUTTON, 25)
+        parse.hexdump(bmp_button)
+
+        print('BMP GRADIENT')
+        # LAYOUT = L8, 512, 1
+        bmp_gradient = socket.read(BMPSRC_GRADIENT, 512)
+        parse.hexdump(bmp_gradient)
+
+    dlist = [
+        make_cmd(eve.CMD.DLSTART),
+        make_cmd(eve.DL.CLEAR, 1, 1, 1),
+        make_cmd(eve.DL.VERTEX_FORMAT, 0),
+
+        make_cmd(eve.DL.BITMAP_HANDLE, 15),
+        make_cmd(eve.DL.CELL, 0),
+        make_cmd(eve.DL.BITMAP_SOURCE, BMPSRC_BUTTON),
+        make_cmd(eve.DL.BITMAP_LAYOUT_H, 0, 0),
+        make_cmd(eve.DL.BITMAP_LAYOUT, eve.BitmapFormat.L8, 1, 250),
+        make_cmd(eve.DL.BITMAP_SIZE_H, 0, 0),
+        make_cmd(eve.DL.BITMAP_SIZE, eve.BitmapFilter.NEAREST, eve.BitmapWrap.REPEAT, eve.BitmapWrap.BORDER, 400, 200),
+
+        # make_cmd(eve.DL.COLOR_MASK, 0, 0, 0, 1),
+        # make_cmd(eve.DL.BLEND_FUNC, eve.BlendFunction.ZERO, eve.BlendFunction.ZERO),
+        # make_cmd(eve.DL.BEGIN, eve.GP.BITMAPS),
+        # make_cmd(eve.DL.VERTEX2F, 0, 0),
+
+        make_cmd(eve.DL.COLOR_MASK, 1, 1, 1, 1),
+        make_cmd(eve.DL.BLEND_FUNC, eve.BlendFunction.SRC_ALPHA, eve.BlendFunction.ONE_MINUS_SRC_ALPHA),
+        make_cmd(eve.DL.LINE_WIDTH, 3.75 * 16),
+        make_cmd(eve.DL.BEGIN, eve.GP.RECTS),
+        make_cmd(eve.DL.COLOR_RGB, 0, 56, 112),
+        make_cmd(eve.DL.VERTEX2F, 0, 0),
+        make_cmd(eve.DL.VERTEX2F, 400, 200),
+
+        make_cmd(eve.DL.COLOR_MASK, 0, 0, 0, 1),
+        make_cmd(eve.DL.BLEND_FUNC, eve.BlendFunction.DST_ALPHA, eve.BlendFunction.ZERO),
+        make_cmd(eve.DL.BEGIN, eve.GP.BITMAPS),
+        make_cmd(eve.DL.VERTEX2F, 0, 0),
+
+        make_cmd(eve.DL.COLOR_MASK, 1, 1, 1, 0),
+        make_cmd(eve.DL.BLEND_FUNC, eve.BlendFunction.DST_ALPHA, eve.BlendFunction.ONE_MINUS_DST_ALPHA),
+        make_cmd(eve.DL.COLOR_RGB, 255, 255, 255),
+        make_cmd(eve.DL.BEGIN, eve.GP.BITMAPS),
+        make_cmd(eve.DL.VERTEX2F, 0, 0),
+
+        make_cmd(eve.DL.DISPLAY),
+        make_cmd(eve.CMD.SWAP),
+    ]
+    socket.send_cmdlist(dlist)
+
+
+def custom_font_test(socket):
+    xo, yo = 400, 240
+    text = 'Now is the time for all good bits to come to the aid of the parity . . . .'
+    spacing = 0
+    start_angle = 0
+
+    handle = 0
+    font_slot = 30
+    # font_slot = 25
+    # font_slot = 23
+    # font_slot = 20
+
+    font = fonts[font_slot - 16]
+
+    REPS = 4
+
+    rects = []
+    for i in range(REPS):
+        rects += [
+            make_cmd(eve.DL.COLOR_RGB, 50*(i&1), 20, 100*(i&1)),
+            make_cmd(eve.DL.BEGIN, eve.GP.RECTS),
+            make_cmd(eve.DL.VERTEX2F, 0, i*font.height),
+            make_cmd(eve.DL.VERTEX2F, font.width-1, i*font.height + font.height-1),
+        ]
+
+    '''Rotated font requires an enlarged, centred glyph.
+    Worst case is at 45 degrees where box width and height = sqrt(w*w + h*h).
+    Font 30 is 28x36, diag is 46.
+    96 characters (32-127) normally require (14*36*96) = 48384 bytes.
+    Rotated font requires (23*46*96) = 101568 bytes.
+
+    Font 34 is 78x108, diag is 134.
+    Normal size (39*108*96) = 404352 bytes.
+    Rotated font (67*134*96) = 861888 bytes.
+
+    So if this becomes necessary it's likely going to be more efficient building the actual
+    string text as a bitmap and rotating that.
+
+    '''
+    diag = math.ceil(math.sqrt(font.width * font.width + font.height * font.height))
+    print(f'Font {font.width} x {font.height}, diag {diag}')
+
+    h = font.height*REPS
+    tx, ty = font.width / 2, h / 2
+    dlist = [
+        make_cmd(eve.CMD.DLSTART),
+        make_cmd(eve.DL.CLEAR, 1, 1, 1),
+        # make_cmd(eve.CMD.ROMFONT, handle, font_slot),
+        make_cmd(eve.DL.VERTEX_TRANSLATE_X, 400*16),
+        make_cmd(eve.DL.VERTEX_TRANSLATE_Y, 10*16),
+        make_cmd(eve.CMD.LOADIDENTITY),
+        make_cmd(eve.CMD.TRANSLATE, tx, ty),
+        make_cmd(eve.CMD.ROTATE, -45 * 65536 // 360),
+        make_cmd(eve.CMD.TRANSLATE, -tx, -ty),
+        make_cmd(eve.CMD.SETMATRIX),
+        make_cmd(eve.DL.VERTEX_FORMAT, 0),
+        make_cmd(eve.DL.BITMAP_HANDLE, handle),
+        make_cmd(eve.DL.BITMAP_SOURCE, font.bitmap),
+        make_cmd(eve.DL.BITMAP_LAYOUT_H, 0, h >> 9),
+        make_cmd(eve.DL.BITMAP_LAYOUT, font.format, font.stride, h & 0x1ff),
+        make_cmd(eve.DL.BITMAP_SIZE_H, 0, h >> 9),
+        make_cmd(eve.DL.BITMAP_SIZE, eve.BitmapFilter.NEAREST, eve.BitmapWrap.BORDER, eve.BitmapWrap.BORDER, font.width, h & 0x1ff),
+        *rects,
+        make_cmd(eve.DL.COLOR_RGB, 255, 255, 255),
+        make_cmd(eve.DL.BEGIN, eve.GP.BITMAPS),
+        make_cmd(eve.DL.CELL, ord('A')//REPS),
+        make_cmd(eve.DL.VERTEX2F, 0, 0),
+
+        make_cmd(eve.DL.DISPLAY),
+        make_cmd(eve.CMD.SWAP),
+    ]
+    # parse.parse(b''.join(dlist))
+    print(f'dlist length {len(dlist)}')
+    socket.send_cmdlist(dlist)
+
 
 def main():
     # data = b''.join(TEST_DISPLAYLIST_1)
@@ -415,7 +586,11 @@ def main():
     socket = Socket()
     socket.connect('ws://192.168.1.175/ws')
 
+    # dump_fonts(socket)
+    # dump_rom(socket)
+    # button_test(socket)
     font_test(socket)
+    # custom_font_test(socket)
     return
 
     if True:
