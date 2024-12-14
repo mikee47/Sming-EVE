@@ -70,11 +70,12 @@ TOUCH_CONFIG = [
 ]
 
 
-def hexdump(data: bytes):
+def hexdump(data: bytes, addr: int = 0):
     STEP = 16
     for i in range(0, len(data), STEP):
         hex = binascii.hexlify(data[i:i+STEP], ' ').decode()
-        print(f'  {i:04x}: {hex}')
+        text = bytes([ord('.') if (c < 32 or c >= 127) else c for c in data[i:i+STEP]]).decode()
+        print(f'  {addr + i:06x}: {hex}  {text}')
 
 
 def inflate(data: bytes) -> int:
