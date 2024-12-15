@@ -351,14 +351,15 @@ def font_test(socket):
     start_angle = 65536 * 90 // 360
 
     handle = 31
-    font_slot = 31
+    font_slot = 32
     # font_slot = 25
     # font_slot = 23
     # font_slot = 20
 
     font = fonts[font_slot - 16]
-    tx, ty = font.width/2, font.height/2
-    print(font)
+
+    # Vertex format scaling
+    VF = 16
 
     dlist = [
         make_cmd(eve.CMD.DLSTART),
@@ -366,53 +367,76 @@ def font_test(socket):
         # make_cmd(eve.DL.COLOR_A, 150),
 
         make_cmd(eve.CMD.ROMFONT, handle, font_slot),
+        make_cmd(eve.DL.BITMAP_SIZE, eve.BitmapFilter.NEAREST,
+            eve.BitmapWrap.BORDER, eve.BitmapWrap.BORDER, 2*font.height, 2*font.height),
+
         make_cmd(eve.DL.VERTEX_TRANSLATE_X, xo*16),
         make_cmd(eve.DL.VERTEX_TRANSLATE_Y, yo*16),
-        make_cmd(eve.DL.VERTEX_FORMAT, 0),
-        make_cmd(eve.DL.BITMAP_HANDLE, handle),
+        make_cmd(eve.DL.VERTEX_FORMAT, 4),
+
+        make_cmd(eve.DL.BEGIN, eve.GP.POINTS),
+        make_cmd(eve.DL.POINT_SIZE, VF*font.height*1.2),
+        make_cmd(eve.DL.COLOR_RGB, 110, 30, 0),
+        make_cmd(eve.DL.VERTEX2F, 0, 0),
+
+        make_cmd(eve.DL.LINE_WIDTH, 32),
     ]
 
-
+    tx, ty = font.width, font.height
     words = iter(text.split())
     for angle in range(0, 65536, 4096):
         a = (angle + start_angle) & 0xffff
+        r, g, b = angle*200//65536, 0, 200 - (angle * 200 // 65536)
         dlist += [
             make_cmd(eve.CMD.LOADIDENTITY),
             make_cmd(eve.CMD.TRANSLATE, tx, ty),
-            make_cmd(eve.CMD.SCALE, 0.8, 0.8),
             make_cmd(eve.CMD.ROTATE, a),
-            make_cmd(eve.CMD.TRANSLATE, -tx, -ty),
+            make_cmd(eve.CMD.TRANSLATE, -tx/2, -ty/2),
             make_cmd(eve.CMD.SETMATRIX),
-            make_cmd(eve.DL.COLOR_RGB, angle*200//65536, 0, 200 - (angle * 200 // 65536)),
+            make_cmd(eve.DL.COLOR_RGB, r, g, b),
             make_cmd(eve.DL.BEGIN, eve.GP.BITMAPS),
         ]
 
-        base = font.height * 2
-        off = 0
+        base = font.height * 2.2
         ar = 2 * math.pi * a / 65536
         ax, ay = math.cos(ar), math.sin(ar)
-        xb = round(base * ax * 1.8)
-        yb = round(base * ay * 1.2)
+        xb = base * ax * 1.0
+        yb = base * ay * 1.0
+        def getx(pos):
+            return round(VF * (xb + pos * ax))
+        def gety(pos):
+            return round(VF * (yb + pos * ay))
+        off = 0
         for c in next(words):
             char_width = font.char_widths[ord(c)]
-            x = round(xb + off * ax)
-            y = round(yb + off * ay)
             dlist += [
                 make_cmd(eve.DL.CELL, ord(c)),
-                make_cmd(eve.DL.VERTEX2F, x, y)
+                make_cmd(eve.DL.VERTEX2F, getx(off) - VF*tx, gety(off) - VF*ty),
             ]
             off += char_width + spacing
 
-        dlist += [
-            make_cmd(eve.DL.END)
-        ]
+        if True:
+            x1, y1 = getx(0-tx/2), gety(0-tx/2)
+            x2, y2 = getx(off-tx/2) - 1, gety(off-tx/2) - 1
+            xo, yo = round(VF * ay * ty/2), round(VF * ax * ty/2)
+            pts = [
+                (x1 + xo, y1 - yo),
+                (x2 + xo, y2 - yo),
+                (x2 - xo, y2 + yo),
+                (x1 - xo, y1 + yo),
+                (x1 + xo, y1 - yo),
+            ]
+            dlist += [
+                make_cmd(eve.DL.COLOR_A, 40),
+                # make_cmd(eve.DL.COLOR_RGB, r // 2, g, b // 2),
+                make_cmd(eve.DL.COLOR_RGB, 255, 255, 255),
+                make_cmd(eve.DL.BEGIN, eve.GP.LINE_STRIP),
+                *(make_cmd(eve.DL.VERTEX2F, *pt) for pt in pts),
+                make_cmd(eve.DL.END),
+                make_cmd(eve.DL.COLOR_A, 255),
+            ]
 
     dlist += [
-        make_cmd(eve.DL.VERTEX_TRANSLATE_X, 0),
-        make_cmd(eve.DL.VERTEX_TRANSLATE_Y, 0),
-        make_cmd(eve.CMD.LOADIDENTITY),
-        make_cmd(eve.CMD.SETMATRIX),
-        make_cmd(eve.CMD.TEXT, 10, 10, 31, 0, 'Hello there!'),
         make_cmd(eve.DL.DISPLAY),
         make_cmd(eve.CMD.SWAP),
     ]
