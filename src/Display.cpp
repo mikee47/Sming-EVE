@@ -119,13 +119,13 @@ bool EveDisplay::setIoMode(HSPI::IoMode mode)
 	uint8_t spiWidth;
 	switch(mode) {
 	case HSPI::IoMode::SDI:
-		spiWidth = 1;
+		spiWidth = 0x01;
 		break;
 	case HSPI::IoMode::SQI:
-		spiWidth = 2;
+		spiWidth = 0x04 | 0x02; // Add extra dummy byte for reads
 		break;
 	default:
-		spiWidth = 0;
+		spiWidth = 0x00;
 	}
 
 	if(!isSupported(mode)) {

@@ -59,7 +59,12 @@ public:
 		wait(req);
 		assert(addrValid(address));
 		req.setAddress24(address % EVE_MEMORY_SIZE);
-		req.dummyLen = 8 / getBitsPerClock();
+		if(getIoMode() == HSPI::IoMode::SPIHD) {
+			req.dummyLen = 8;
+		} else {
+			// SDI gets one dummy byte, but for SQI we use two
+			req.dummyLen = 4;
+		}
 	}
 
 	static constexpr bool addrValid(uint32_t addr)
