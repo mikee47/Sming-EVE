@@ -78,6 +78,10 @@ bool EveDisplay::begin(HSPI::PinSet pinSet, uint8_t chipSelect, uint32_t spiCloc
 
 	/* Create initial display list */
 	const uint32_t dl[]{
+		// As recommended in datasheet - these can be non-zero on boot
+		BITMAP_LAYOUT_H(0, 0),
+		BITMAP_SIZE_H(0, 0),
+		// Clear display to black
 		CLEAR_COLOR_RGB(0, 0, 0),
 		CLEAR(true, true, true),
 		DISPLAY(),
