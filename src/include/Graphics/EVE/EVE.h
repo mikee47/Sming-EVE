@@ -226,6 +226,7 @@ enum class BlendFunction {
 
 /* Graphics primitives (DL_BEGIN) */
 enum GraphicsPrimitive {
+	GP_NONE = 0,
 	GP_BITMAPS = 1,
 	GP_POINTS = 2,
 	GP_LINES = 3,
