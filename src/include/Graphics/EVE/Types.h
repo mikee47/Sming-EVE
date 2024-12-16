@@ -39,12 +39,20 @@ struct Degrees : public Angle {
 	}
 };
 
-struct Fixed8_8 {
+template <uint8_t precision> struct FixedTemplate {
+	static constexpr unsigned scalar = 1U << precision;
 	int32_t value{0};
 
-	constexpr Fixed8_8() = default;
+	constexpr FixedTemplate() = default;
 
-	constexpr Fixed8_8(double dbl) : value(dbl * 0x100)
+	constexpr FixedTemplate(double dbl) : value(dbl * scalar)
+	{
+	}
+
+	template <uint8_t otherPrecision>
+	constexpr FixedTemplate(FixedTemplate<otherPrecision> other)
+		: value((precision < otherPrecision) ? (other.value >> (otherPrecision - precision))
+											 : (other.value << (precision - otherPrecision)))
 	{
 	}
 
@@ -52,36 +60,24 @@ struct Fixed8_8 {
 	{
 		return value;
 	}
-};
 
-struct Fixed15_8 {
-	int32_t value{0};
-
-	constexpr Fixed15_8() = default;
-
-	constexpr Fixed15_8(double dbl) : value(dbl * 0x100)
+	int operator*(int num) const
 	{
-	}
-
-	explicit operator int32_t() const
-	{
-		return value;
+		return (num * value + scalar / 2) / scalar;
 	}
 };
 
-struct Fixed16_16 {
-	int32_t value{0};
+using Fixed8 = FixedTemplate<8>;
+using Fixed16 = FixedTemplate<16>;
 
-	constexpr Fixed16_16() = default;
+template <uint8_t precision> int operator*(int value, FixedTemplate<precision> div)
+{
+	return div * value;
+}
 
-	constexpr Fixed16_16(double dbl) : value(dbl * 0x10000)
-	{
-	}
-
-	explicit operator int32_t() const
-	{
-		return value;
-	}
-};
+template <uint8_t precision> int operator/(int value, FixedTemplate<precision> div)
+{
+	return (value * div.scalar + div.value / 2) / div.value;
+}
 
 } // namespace Graphics::EVE

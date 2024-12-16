@@ -343,8 +343,8 @@ Cell = Type('Cell', 7)
 Boolean = Type('bool', 1)
 TestFunction = Type('TestFunction', 4)
 StencilOp = Type('StencilOp', 3)
-Fixed8_8 = Type('Fixed8_8', 17, signed=True)
-Fixed15_8 = Type('Fixed15_8', 24, signed=True)
+Fixed8_8 = Type('Fixed8', 17, signed=True)
+Fixed15_8 = Type('Fixed8', 24, signed=True)
 DisplayListOffset = Type('DisplayListOffset', 16)
 
 # Used with co-processor commands
@@ -356,7 +356,7 @@ UInt16 = Type('uint16_t', 16)
 Int32 = Type('int32_t', 32, signed=True)
 UInt32 = Type('uint32_t', 32)
 CString = Type('CString', 0) # Variable length, NUL terminated
-Fixed16_16 = Type('Fixed16_16', 32, signed=True)
+Fixed16_16 = Type('Fixed16', 32, signed=True)
 Angle = Type('Angle', 32) # Units of 1/65536 of a circle
 Options = Type('Options', 16)
 

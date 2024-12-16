@@ -62,6 +62,14 @@ private:
 		}
 	}
 
+	void vertex(Point pt)
+	{
+		auto scale = display.getScale();
+		pt.x = pt.x * scale;
+		pt.y = pt.y * scale;
+		cmd.vertex2f(pt);
+	}
+
 	void begin(EVE::GraphicsPrimitive prim)
 	{
 		if(context.prim != prim) {

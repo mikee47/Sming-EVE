@@ -3,6 +3,7 @@
 #include <HSPI/MemoryDevice.h>
 #include <Graphics/AbstractDisplay.h>
 #include "EVE.h"
+#include "Types.h"
 #include <FlashString/Array.hpp>
 
 namespace Graphics
@@ -129,6 +130,16 @@ public:
 		blockWrite(addr, values.data(), values.length());
 	}
 
+	void setScale(EVE::Fixed8 scale)
+	{
+		this->scale = scale;
+	}
+
+	EVE::Fixed8 getScale() const
+	{
+		return scale;
+	}
+
 	/* Device */
 
 	String getName() const override;
@@ -148,6 +159,7 @@ private:
 
 	Size nativeSize{};
 	Orientation orientation{};
+	EVE::Fixed8 scale{1};
 };
 
 } // namespace Graphics
