@@ -1,4 +1,5 @@
 #include "include/Graphics/EVE/Display.h"
+#include "include/Graphics/EVE/Surface.h"
 #include <Clock.h>
 #include <Platform/Timers.h>
 
@@ -66,11 +67,6 @@ bool EveDisplay::begin(HSPI::PinSet pinSet, uint8_t chipSelect, uint32_t spiCloc
 	write8(REG_TOUCH_MODE, EVE_TMODE_CONTINUOUS);
 	write8(REG_TOUCH_OVERSAMPLE, 15);
 
-#if defined(EVE_ROTATE)
-	write8(REG_ROTATE, EVE_ROTATE & 7U); /* bit0 = invert, bit2 = portrait, bit3 = mirrored */
-										 /* reset default value is 0x0 - not inverted, landscape, not mirrored */
-#endif
-
 	/* disable Audio for now */
 	write8(REG_VOL_PB, 0);	// turn recorded audio volume down, reset-default is 0xff
 	write8(REG_VOL_SOUND, 0); // turn synthesizer volume down, reset-default is 0xff
@@ -109,6 +105,8 @@ bool EveDisplay::begin(HSPI::PinSet pinSet, uint8_t chipSelect, uint32_t spiCloc
 	write8(REG_GPIO, 0x80);
 
 	setClockSpeed(spiClockSpeed);
+
+	nativeSize = Size{config.hsize, config.vsize};
 
 	return true;
 }
@@ -156,6 +154,78 @@ void EveDisplay::blockWrite(uint32_t addr, const uint32_t* values, unsigned coun
 	req.setAddress24(0x800000 | (addr % EVE_MEMORY_SIZE));
 	req.out.set(values, count * sizeof(uint32_t));
 	execute(req);
+}
+
+/* Device */
+
+String EveDisplay::getName() const
+{
+	return "EVE";
+}
+
+bool EveDisplay::setOrientation(Orientation orientation)
+{
+	/*
+		bit0 = invert, bit2 = portrait, bit3 = mirrored.
+		reset default value is 0x0 - not inverted, landscape, not mirrored.
+
+		TODO: Touch is not affected by this transformation
+	*/
+	uint8_t value;
+	switch(orientation) {
+	case Orientation::deg0:
+		value = 0;
+		break;
+	case Orientation::deg90:
+		value = 3;
+		break;
+	case Orientation::deg180:
+		value = 1;
+		break;
+	case Orientation::deg270:
+		value = 2;
+		break;
+	}
+	return false;
+
+	write8(REG_ROTATE, value);
+	this->orientation = orientation;
+	return true;
+}
+
+Size EveDisplay::getNativeSize() const
+{
+	return nativeSize;
+}
+
+bool EveDisplay::setScrollMargins(uint16_t top, uint16_t bottom)
+{
+	// TODO
+	return false;
+}
+
+bool EveDisplay::scroll(int16_t y)
+{
+	// TODO
+	return false;
+}
+
+/* RenderTarget */
+
+Size EveDisplay::getSize() const
+{
+	return nativeSize;
+}
+
+PixelFormat EveDisplay::getPixelFormat() const
+{
+	// Wide range of pixel formats supported, but start with this one
+	return PixelFormat::RGB565;
+}
+
+Surface* EveDisplay::createSurface(size_t bufferSize)
+{
+	return new EveSurface(*this, bufferSize);
 }
 
 } // namespace Graphics

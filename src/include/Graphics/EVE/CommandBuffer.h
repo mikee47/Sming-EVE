@@ -132,6 +132,11 @@ public:
 		clear_color_rgb(getRed(color), getGreen(color), getBlue(color));
 	}
 
+	void vertex2f(Point pt)
+	{
+		vertex2f(pt.x, pt.y);
+	}
+
 private:
 	uint8_t buffer[EVE_CMDFIFO_SIZE];
 	unsigned size{0};
