@@ -72,7 +72,7 @@ bool EveSurface::setPixel(PackedColor color, Point pt)
 {
 	setColor(color);
 	begin(GP_POINTS);
-	cmd.vertex2f(pt);
+	vertex(pt);
 	return true;
 }
 
@@ -112,7 +112,7 @@ bool EveSurface::render(const Object& object, const Rect& location, std::unique_
 		}
 		setColor(color);
 		begin(GP_POINTS);
-		cmd.vertex2f(pt);
+		vertex(pt);
 		return true;
 	}
 
@@ -122,11 +122,11 @@ bool EveSurface::render(const Object& object, const Rect& location, std::unique_
 		setColor(color);
 		begin(EVE::GP_LINE_STRIP);
 		auto& r = obj.rect;
-		cmd.vertex2f(r.topLeft());
-		cmd.vertex2f(r.topRight());
-		cmd.vertex2f(r.bottomRight());
-		cmd.vertex2f(r.bottomLeft());
-		cmd.vertex2f(r.topLeft());
+		vertex(r.topLeft());
+		vertex(r.topRight());
+		vertex(r.bottomRight());
+		vertex(r.bottomLeft());
+		vertex(r.topLeft());
 		end();
 		return true;
 	}
@@ -143,8 +143,8 @@ bool EveSurface::render(const Object& object, const Rect& location, std::unique_
 		color = obj.brush.getColor();
 		setColor(color);
 		begin(EVE::GP_RECTS);
-		cmd.vertex2f(obj.rect.topLeft());
-		cmd.vertex2f(obj.rect.bottomRight());
+		vertex(obj.rect.topLeft());
+		vertex(obj.rect.bottomRight());
 		return true;
 	}
 
@@ -153,8 +153,8 @@ bool EveSurface::render(const Object& object, const Rect& location, std::unique_
 		color = obj.pen.getColor();
 		setColor(color);
 		begin(EVE::GP_LINES);
-		cmd.vertex2f(obj.pt1);
-		cmd.vertex2f(obj.pt2);
+		vertex(obj.pt1);
+		vertex(obj.pt2);
 		return true;
 	}
 
@@ -164,7 +164,7 @@ bool EveSurface::render(const Object& object, const Rect& location, std::unique_
 		setColor(color);
 		begin(obj.connected ? EVE::GP_LINE_STRIP : EVE::GP_LINES);
 		for(unsigned i = 0; i < obj.numPoints; ++i) {
-			cmd.vertex2f(obj[i]);
+			vertex(obj[i]);
 		}
 		end();
 		return true;
@@ -179,7 +179,7 @@ bool EveSurface::render(const Object& object, const Rect& location, std::unique_
 		setColor(color);
 		begin(EVE::GP_POINTS);
 		setPointSize(16 * obj.radius);
-		cmd.vertex2f(obj.centre);
+		vertex(obj.centre);
 		return true;
 	}
 
@@ -254,8 +254,8 @@ bool EveSurface::fillRect(PackedColor color, const Rect& rect)
 {
 	setColor(color);
 	begin(EVE::GP_RECTS);
-	cmd.vertex2f(rect.topLeft());
-	cmd.vertex2f(rect.bottomRight());
+	vertex(rect.topLeft());
+	vertex(rect.bottomRight());
 	return true;
 }
 

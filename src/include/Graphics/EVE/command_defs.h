@@ -108,7 +108,7 @@ void bitmap_source(Address addr)
     write(&inst, sizeof(inst));
 }
 
-void bitmap_transform_a(Fixed8_8 a)
+void bitmap_transform_a(Fixed8 a)
 {
     struct Inst {
         uint32_t a: 17;
@@ -120,7 +120,7 @@ void bitmap_transform_a(Fixed8_8 a)
     write(&inst, sizeof(inst));
 }
 
-void bitmap_transform_b(Fixed8_8 b)
+void bitmap_transform_b(Fixed8 b)
 {
     struct Inst {
         uint32_t b: 17;
@@ -132,7 +132,7 @@ void bitmap_transform_b(Fixed8_8 b)
     write(&inst, sizeof(inst));
 }
 
-void bitmap_transform_c(Fixed15_8 c)
+void bitmap_transform_c(Fixed8 c)
 {
     struct Inst {
         uint32_t c: 24;
@@ -143,7 +143,7 @@ void bitmap_transform_c(Fixed15_8 c)
     write(&inst, sizeof(inst));
 }
 
-void bitmap_transform_d(Fixed8_8 d)
+void bitmap_transform_d(Fixed8 d)
 {
     struct Inst {
         uint32_t d: 17;
@@ -155,7 +155,7 @@ void bitmap_transform_d(Fixed8_8 d)
     write(&inst, sizeof(inst));
 }
 
-void bitmap_transform_e(Fixed8_8 e)
+void bitmap_transform_e(Fixed8 e)
 {
     struct Inst {
         uint32_t e: 17;
@@ -167,7 +167,7 @@ void bitmap_transform_e(Fixed8_8 e)
     write(&inst, sizeof(inst));
 }
 
-void bitmap_transform_f(Fixed15_8 f)
+void bitmap_transform_f(Fixed8 f)
 {
     struct Inst {
         uint32_t f: 24;
@@ -728,7 +728,7 @@ void gauge(int16_t x, int16_t y, uint16_t r, Options options, uint16_t major, ui
     write(&inst, sizeof(inst));
 }
 
-void getmatrix(Fixed8_8 a, Fixed8_8 b, Fixed8_8 c, Fixed8_8 d, Fixed8_8 e, Fixed8_8 f)
+void getmatrix(Fixed8 a, Fixed8 b, Fixed8 c, Fixed8 d, Fixed8 e, Fixed8 f)
 {
     struct Inst {
         uint32_t code;
@@ -1039,7 +1039,7 @@ void rotate(Angle a)
     write(&inst, sizeof(inst));
 }
 
-void scale(Fixed16_16 sx, Fixed16_16 sy)
+void scale(Fixed16 sx, Fixed16 sy)
 {
     struct Inst {
         uint32_t code;
@@ -1296,7 +1296,7 @@ void track(int16_t x, int16_t y, uint16_t w, uint16_t h, uint8_t tag)
     write(&inst, sizeof(inst));
 }
 
-void translate(Fixed16_16 tx, Fixed16_16 ty)
+void translate(Fixed16 tx, Fixed16 ty)
 {
     struct Inst {
         uint32_t code;

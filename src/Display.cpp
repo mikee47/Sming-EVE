@@ -214,7 +214,10 @@ bool EveDisplay::scroll(int16_t y)
 
 Size EveDisplay::getSize() const
 {
-	return nativeSize;
+	auto size = nativeSize;
+	size.w = size.w / scale;
+	size.h = size.h / scale;
+	return size;
 }
 
 PixelFormat EveDisplay::getPixelFormat() const
