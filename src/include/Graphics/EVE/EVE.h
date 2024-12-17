@@ -42,18 +42,65 @@ Tidied and strengthened for C++ only
 namespace Graphics::EVE
 {
 /* Memory */
-constexpr uint32_t EVE_RAM_G = 0x00000000;
-constexpr uint32_t EVE_ROM_CHIPID = 0x000C0000;
-constexpr uint32_t EVE_ROM_FONT = 0x001E0000;
-constexpr uint32_t EVE_ROM_FONT_ADDR = 0x002FFFFC;
-constexpr uint32_t EVE_RAM_DL = 0x00300000;
-constexpr uint32_t EVE_RAM_REG = 0x00302000;
-constexpr uint32_t EVE_RAM_CMD = 0x00308000;
 
-/* Memory buffer sizes */
+/**
+ * @brief Start of graphics RAM
+ */
+constexpr uint32_t EVE_RAM_G = 0x000000;
+
+/**
+ * @brief Size of graphics RAM (1MByte)
+ */
 constexpr uint32_t EVE_RAM_G_SIZE = 1024 * 1024;
-constexpr uint32_t EVE_CMDFIFO_SIZE = 4 * 1024;
+
+/**
+ * @brief At startup, chip identification can be read from this RAM location.
+ * It's copied from ROM.
+ */
+constexpr uint32_t EVE_RAM_CHIPID = 0x0C0000;
+
+/**
+ * @brief Start of ROM
+ * @note There is an `ROM_FONT` address defined in the datasheets at 0x1E0000,
+ * but this is misleading as there is nothing mapped at this location and it just reads 0xff.
+ * ROM font #34 'starts' at 0x1e1b5c but this puts the first glyph (ASCII 32) at 0x2029DC.
+ */
+constexpr uint32_t EVE_ROM_BASE = 0x200000;
+
+/**
+ * @brief ROM location pointing to start of ROM font table
+ */
+constexpr uint32_t EVE_ROM_FONT_ADDR = 0x2FFFFC;
+
+/**
+ * @brief Location of inactive display list which applications write to.
+ * The SWAP command exchanges this with the active list, which isn't directly accessible.
+ */
+constexpr uint32_t EVE_RAM_DL = 0x300000;
+
+/**
+ * @brief Size of display list, in bytes
+ */
 constexpr uint32_t EVE_RAM_DL_SIZE = 8 * 1024;
+
+/**
+ * @brief Start of register space.
+ */
+constexpr uint32_t EVE_RAM_REG = 0x302000;
+
+/**
+ * @brief Start of co-processor command FIFO.
+ */
+constexpr uint32_t EVE_RAM_CMD = 0x308000;
+
+/**
+ * @brief Size of co-processor command FIFO, in bytes
+ */
+constexpr uint32_t EVE_CMDFIFO_SIZE = 4 * 1024;
+
+/**
+ * @brief Limit on addressable memory range
+ */
 constexpr uint32_t EVE_MEMORY_SIZE = 0x00400000;
 
 /**
