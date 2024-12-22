@@ -91,7 +91,12 @@ Converting audio and video
 
 Convert source video sized to full-screen, mono audio::
 
-    ffmpeg -i big_buck_bunny_1080p_stereo.avi -s 800x480 -c:v mjpeg -ac 1 -c:a pcm_s16le big_bunny_full.avi
+    ffmpeg -i big_buck_bunny_1080p_stereo.avi -s 800x480 -c:v mjpeg -ac 1 -ar 22050 -c:a pcm_mulaw big_bunny_full.avi
+
+Mono audio::
+
+    ffmpeg -i source-audio.flac -ac 1 -f s8 -c:a pcm_s8 -ar 22050 dest-audio.raw
+    ffmpeg -i source-audio.flac -ac 1 -f mulaw -c:a pcm_mulaw -ar 22050 dest-audio.raw
 
 
 References
