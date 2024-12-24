@@ -677,20 +677,6 @@ enum Register : uint32_t {
 	REG_MEDIAFIFO_WRITE = 0x00309018,
 };
 
-/**
- * @brief Font description
- */
-struct FontMetrics {
-	uint8_t char_width[128]; ///< Width of each character font in pixels
-	uint32_t format;		 ///< Bitmap format of font wrt bitmap formats supported by FT800 - L1, L4, L8
-	uint32_t stride;		 ///< Font line stride in FT800 ROM
-	uint32_t width;			 ///< Font width in pixels
-	uint32_t height;		 ///< Font height in pixels
-	uint32_t bitmap;		 ///< Pointer to font graphics raw data
-};
-
-extern const FontMetrics romfonts[];
-
 /* Macros for static display list generation */
 
 /**

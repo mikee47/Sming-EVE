@@ -1,4 +1,4 @@
-#include "include/Graphics/EVE/EVE.h"
+#include "include/Graphics/EVE/RomFont.h"
 #include <sys/pgmspace.h>
 
 namespace Graphics::EVE
@@ -13,7 +13,7 @@ const FontMetrics romfonts[] PROGMEM{
 				8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
 				8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
 			},
-		.format = 1,
+		.format = BMF_L1,
 		.stride = 1,
 		.width = 8,
 		.height = 8,
@@ -28,7 +28,7 @@ const FontMetrics romfonts[] PROGMEM{
 				8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
 				8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
 			},
-		.format = 1,
+		.format = BMF_L1,
 		.stride = 1,
 		.width = 8,
 		.height = 8,
@@ -43,7 +43,7 @@ const FontMetrics romfonts[] PROGMEM{
 				8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
 				8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
 			},
-		.format = 1,
+		.format = BMF_L1,
 		.stride = 1,
 		.width = 8,
 		.height = 16,
@@ -58,7 +58,7 @@ const FontMetrics romfonts[] PROGMEM{
 				8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
 				8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
 			},
-		.format = 1,
+		.format = BMF_L1,
 		.stride = 1,
 		.width = 8,
 		.height = 16,
@@ -73,7 +73,7 @@ const FontMetrics romfonts[] PROGMEM{
 				11, 7, 7, 8, 8, 7, 6, 8, 8, 3, 5, 7, 6, 9, 8, 8, 7, 8, 7, 7, 5, 8, 7, 9, 7, 7, 7, 3, 3, 3, 6, 6,
 				3,  5, 6, 5, 6, 5, 4, 6, 6, 2, 2, 5, 2, 8, 6, 6, 6, 6, 4, 5, 4, 5, 6, 8, 6, 5, 5, 3, 3, 3, 7, 0,
 			},
-		.format = 1,
+		.format = BMF_L1,
 		.stride = 2,
 		.width = 10,
 		.height = 13,
@@ -89,7 +89,7 @@ const FontMetrics romfonts[] PROGMEM{
 				10, 11, 9, 11, 10, 9,  9, 10, 9, 13, 9, 9,  9,  4, 4, 4,  7,  8, 5, 8,  7,  7, 8, 8, 4, 8,
 				8,  3,  3, 7,  3,  11, 8, 8,  8, 8,  5, 7,  4,  7, 7, 10, 7,  7, 7, 5,  3,  5, 8, 0,
 			},
-		.format = 1,
+		.format = BMF_L1,
 		.stride = 2,
 		.width = 13,
 		.height = 17,
@@ -105,7 +105,7 @@ const FontMetrics romfonts[] PROGMEM{
 				12, 13, 11, 13, 12, 11, 10, 12, 11, 15, 11, 11, 10, 5,  5,  5,  8,  9,  6,  9,  9,  8, 9,  9,  5, 9,
 				9,  3,  4,  8,  3,  14, 9,  9,  9,  9,  5,  8,  5,  9,  8,  12, 8,  8,  8,  6,  4,  6, 10, 0,
 			},
-		.format = 1,
+		.format = BMF_L1,
 		.stride = 2,
 		.width = 14,
 		.height = 20,
@@ -121,7 +121,7 @@ const FontMetrics romfonts[] PROGMEM{
 				14, 15, 13, 15, 14, 13, 12, 14, 13, 18, 13, 13, 12, 5,  5,  5,  9,  11, 4,  11, 11, 10, 11, 10, 6,  11,
 				10, 4,  4,  9,  4,  16, 10, 11, 11, 11, 6,  9,  6,  10, 10, 14, 10, 10, 9,  6,  5,  6,  10, 0,
 			},
-		.format = 1,
+		.format = BMF_L1,
 		.stride = 3,
 		.width = 17,
 		.height = 22,
@@ -137,7 +137,7 @@ const FontMetrics romfonts[] PROGMEM{
 				18, 18, 16, 18, 17, 16, 16, 18, 17, 22, 17, 16, 15, 7,  7,  7,  12, 14, 7,  13, 14, 12, 14, 13, 8,  14,
 				13, 6,  6,  12, 6,  20, 14, 13, 14, 14, 9,  12, 8,  14, 13, 18, 12, 13, 12, 8,  6,  8,  14, 0,
 			},
-		.format = 1,
+		.format = BMF_L1,
 		.stride = 3,
 		.width = 24,
 		.height = 29,
@@ -153,7 +153,7 @@ const FontMetrics romfonts[] PROGMEM{
 				24, 25, 22, 26, 24, 22, 20, 24, 22, 31, 22, 22, 20, 9,  9,  9,  16, 18, 11, 18, 18, 16, 18, 18, 9,  18,
 				18, 7,  7,  16, 7,  27, 18, 18, 18, 18, 11, 16, 9,  18, 16, 23, 16, 16, 16, 11, 9,  11, 19, 0,
 			},
-		.format = 1,
+		.format = BMF_L1,
 		.stride = 4,
 		.width = 30,
 		.height = 38,
@@ -168,7 +168,7 @@ const FontMetrics romfonts[] PROGMEM{
 				13, 9, 9, 9,  9, 7,  7, 9, 9, 4, 8, 9, 7, 11, 9, 10, 9, 10, 9, 9, 10, 9, 9, 12, 9, 9, 9, 4, 6, 4, 6,  8,
 				4,  8, 8, 8,  8, 8,  6, 8, 8, 3, 3, 7, 3, 11, 8, 8,  8, 8,  5, 7, 6,  8, 7, 11, 7, 7, 8, 5, 3, 5, 10, 3,
 			},
-		.format = 2,
+		.format = BMF_L4,
 		.stride = 7,
 		.width = 14,
 		.height = 16,
@@ -184,7 +184,7 @@ const FontMetrics romfonts[] PROGMEM{
 				11, 12, 10, 12, 11, 11, 12, 11, 11, 15, 11, 10, 11, 5,  7,  5,  7,  10, 5, 9,  9,  9, 10, 9,  7,  10,
 				9,  4,  4,  9,  4,  15, 9,  10, 9,  10, 6,  9,  7,  9,  9,  13, 9,  9,  9, 6,  4,  6, 11, 4,
 			},
-		.format = 2,
+		.format = BMF_L4,
 		.stride = 8,
 		.width = 16,
 		.height = 20,
@@ -200,7 +200,7 @@ const FontMetrics romfonts[] PROGMEM{
 				15, 14, 14, 14, 13, 12, 14, 13, 14, 18, 13, 14, 13, 6,  9,  7,  9,  11, 7,  11, 11, 11, 12, 11, 8,  11,
 				11, 6,  6,  11, 6,  18, 11, 12, 11, 12, 7,  11, 8,  12, 11, 16, 11, 11, 11, 8,  5,  7,  14, 5,
 			},
-		.format = 2,
+		.format = BMF_L4,
 		.stride = 9,
 		.width = 18,
 		.height = 25,
@@ -216,7 +216,7 @@ const FontMetrics romfonts[] PROGMEM{
 				17, 16, 15, 17, 15, 14, 15, 17, 15, 21, 15, 15, 14, 7,  10, 7,  10, 13, 8,  13, 14, 12, 14, 12, 10, 14,
 				14, 6,  6,  13, 6,  21, 14, 13, 14, 13, 9,  12, 9,  14, 12, 18, 12, 12, 12, 8,  6,  9,  15, 6,
 			},
-		.format = 2,
+		.format = BMF_L4,
 		.stride = 11,
 		.width = 22,
 		.height = 28,
@@ -232,7 +232,7 @@ const FontMetrics romfonts[] PROGMEM{
 				23, 22, 19, 22, 19, 20, 19, 21, 20, 27, 20, 19, 18, 9,  13, 9,  13, 16, 10, 17, 17, 16, 17, 16, 12, 18,
 				17, 7,  8,  16, 7,  27, 17, 17, 17, 17, 11, 17, 11, 17, 16, 23, 16, 16, 15, 11, 7,  10, 21, 8,
 			},
-		.format = 2,
+		.format = BMF_L4,
 		.stride = 14,
 		.width = 28,
 		.height = 36,
@@ -248,7 +248,7 @@ const FontMetrics romfonts[] PROGMEM{
 				29, 28, 26, 29, 27, 26, 26, 28, 27, 36, 27, 26, 25, 12, 18, 12, 18, 21, 13, 23, 24, 22, 24, 22, 15, 24,
 				24, 10, 11, 22, 10, 36, 24, 24, 24, 24, 15, 22, 14, 24, 21, 32, 21, 21, 22, 15, 10, 15, 29, 10,
 			},
-		.format = 2,
+		.format = BMF_L4,
 		.stride = 18,
 		.width = 36,
 		.height = 49,
@@ -264,7 +264,7 @@ const FontMetrics romfonts[] PROGMEM{
 				37, 37, 34, 38, 33, 33, 32, 37, 34, 46, 34, 34, 32, 15, 22, 15, 23, 26, 17, 30, 31, 28, 31, 29, 19, 31,
 				31, 13, 14, 28, 13, 47, 31, 31, 31, 31, 19, 29, 17, 31, 27, 41, 27, 27, 27, 18, 14, 18, 36, 13,
 			},
-		.format = 2,
+		.format = BMF_L4,
 		.stride = 23,
 		.width = 46,
 		.height = 63,
@@ -280,7 +280,7 @@ const FontMetrics romfonts[] PROGMEM{
 				50, 49, 45, 50, 45, 43, 42, 48, 45, 61, 45, 45, 42, 19, 29, 19, 30, 34, 22, 39, 40, 37, 40, 37, 25, 41,
 				41, 18, 18, 36, 18, 63, 41, 40, 40, 40, 25, 38, 23, 41, 36, 54, 36, 36, 36, 24, 18, 24, 47, 18,
 			},
-		.format = 2,
+		.format = BMF_L4,
 		.stride = 30,
 		.width = 60,
 		.height = 83,
@@ -296,7 +296,7 @@ const FontMetrics romfonts[] PROGMEM{
 				65, 63, 58, 64, 58, 56, 56, 62, 58, 79, 58, 58, 55, 25, 38, 25, 38, 43, 29, 50, 52, 48, 52, 48, 31, 52,
 				52, 23, 23, 47, 23, 80, 52, 52, 51, 52, 32, 48, 29, 52, 46, 70, 46, 46, 46, 31, 23, 31, 63, 23,
 			},
-		.format = 2,
+		.format = BMF_L4,
 		.stride = 39,
 		.width = 78,
 		.height = 108,
@@ -304,4 +304,43 @@ const FontMetrics romfonts[] PROGMEM{
 	},
 };
 
+static_assert(ARRAY_SIZE(romfonts) == 1 + ROM_FONT_MAX - ROM_FONT_MIN, "Bad romfont len");
+
+bool getRomFont(uint8_t index, FontMetrics& metrics)
+{
+	index -= ROM_FONT_MIN;
+	if(index > ARRAY_SIZE(romfonts)) {
+		return false;
+	}
+
+	metrics = romfonts[index];
+	return true;
 }
+
+RomTypeFace::RomTypeFace(uint8_t index) : TypeFace(AssetID(index))
+{
+	getRomFont(index, metrics);
+}
+
+bool isExtended(uint8_t index)
+{
+	return index == 17 || index == 19;
+}
+
+GlyphObject::Metrics RomTypeFace::getMetrics(char ch) const
+{
+	uint8_t charIndex = ch;
+	if(isExtended(id())) {
+		charIndex -= 128;
+	}
+	uint8_t width = (charIndex < 128) ? metrics.char_width[charIndex] : 0;
+	return GlyphMetrics{
+		.width = width,
+		.height = metrics.height,
+		.xOffset = 0,
+		.yOffset = int8_t(metrics.height),
+		.advance = width,
+	};
+}
+
+} // namespace Graphics::EVE
