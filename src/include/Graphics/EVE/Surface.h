@@ -86,6 +86,8 @@ private:
 		}
 	}
 
+	void renderText(const Rect& location, const TextObject& object);
+
 	EveDisplay& display;
 	EVE::CommandBuffer cmd;
 	AddressWindow addrWindow;

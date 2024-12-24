@@ -101,7 +101,7 @@ bool EveSurface::render(const Object& object, const Rect& location, std::unique_
 		break;
 
 	case Object::Kind::Point: {
-		auto obj = static_cast<const PointObject&>(object);
+		auto& obj = static_cast<const PointObject&>(object);
 		Point pt = obj.point + location.topLeft();
 		if(obj.brush.isSolid()) {
 			color = obj.brush.getColor();
@@ -117,11 +117,11 @@ bool EveSurface::render(const Object& object, const Rect& location, std::unique_
 	}
 
 	case Object::Kind::Rect: {
-		auto obj = static_cast<const RectObject&>(object);
+		auto& obj = static_cast<const RectObject&>(object);
 		color = obj.pen.getColor();
 		setColor(color);
 		begin(EVE::GP_LINE_STRIP);
-		auto& r = obj.rect;
+		auto r = obj.rect + location.topLeft();
 		vertex(r.topLeft());
 		vertex(r.topRight());
 		vertex(r.bottomRight());
@@ -132,7 +132,7 @@ bool EveSurface::render(const Object& object, const Rect& location, std::unique_
 	}
 
 	case Object::Kind::FilledRect: {
-		auto obj = static_cast<const FilledRectObject&>(object);
+		auto& obj = static_cast<const FilledRectObject&>(object);
 		// if(obj.blender || obj.radius != 0 || obj.brush.isTransparent()) {
 		// 	break;
 		// }
@@ -149,7 +149,7 @@ bool EveSurface::render(const Object& object, const Rect& location, std::unique_
 	}
 
 	case Object::Kind::Line: {
-		auto obj = static_cast<const LineObject&>(object);
+		auto& obj = static_cast<const LineObject&>(object);
 		color = obj.pen.getColor();
 		setColor(color);
 		begin(EVE::GP_LINES);
@@ -174,7 +174,7 @@ bool EveSurface::render(const Object& object, const Rect& location, std::unique_
 		break;
 
 	case Object::Kind::FilledCircle: {
-		auto obj = static_cast<const FilledCircleObject&>(object);
+		auto& obj = static_cast<const FilledCircleObject&>(object);
 		color = obj.brush.getColor();
 		setColor(color);
 		begin(EVE::GP_POINTS);
@@ -204,8 +204,11 @@ bool EveSurface::render(const Object& object, const Rect& location, std::unique_
 	case Object::Kind::Glyph:
 		break;
 
-	case Object::Kind::Text:
-		break;
+	case Object::Kind::Text: {
+		auto& obj = static_cast<const TextObject&>(object);
+		renderText(location, obj);
+		return true;
+	}
 
 	case Object::Kind::Scene:
 		break;
@@ -276,6 +279,142 @@ void EveSurface::setColor(Color color)
 		cmd.color(color);
 	}
 	context.color = color;
+}
+
+void EveSurface::renderText(const Rect& location, const TextObject& object)
+{
+	Point pos = location.topLeft() + object.bounds.topLeft();
+	auto scale = display.getScale();
+
+	const TextObject::FontElement* font{};
+	const TextAsset* text{};
+	GlyphObject::Options options;
+	const EVE::Handle fontHandle{0};
+
+	for(auto& element : object.elements) {
+		switch(element.kind) {
+		case TextObject::Element::Kind::Text: {
+			auto& elem = static_cast<const TextObject::TextElement&>(element);
+			text = &elem.text;
+			continue;
+		}
+		case TextObject::Element::Kind::Font: {
+			font = static_cast<const TextObject::FontElement*>(&element);
+			options.scale = font->scale;
+			options.style = font->style;
+			if(options.scale.scaleX() <= 1) {
+				options.style -= FontStyle::DotMatrix | FontStyle::VLine;
+			}
+			if(options.scale.scaleY() <= 1) {
+				options.style -= FontStyle::DotMatrix | FontStyle::HLine;
+			}
+			cmd.romfont(fontHandle, font->typeface.id());
+			auto h = font->typeface.height();
+			auto fontScaleX = scale * options.scale.scaleX();
+			auto fontScaleY = scale * options.scale.scaleY();
+			// debug_i("fontScale (%d, %d), scale 0x%08x", fontScaleX, fontScaleY, scale.value);
+			cmd.bitmap_size(EVE::BitmapFilter::NEAREST, EVE::BitmapWrap::BORDER, EVE::BitmapWrap::BORDER,
+							fontScaleX * h, fontScaleY * h);
+			cmd.loadidentity();
+			cmd.scale(fontScaleX, fontScaleY);
+			cmd.setmatrix();
+			break;
+		}
+		case TextObject::Element::Kind::Color: {
+			auto& elem = static_cast<const TextObject::ColorElement&>(element);
+			options.fore = elem.fore;
+			options.back = elem.back;
+			cmd.color(options.fore.getColor());
+			break;
+		}
+		case TextObject::Element::Kind::Run: {
+			auto& run = static_cast<const TextObject::RunElement&>(element);
+			auto ymax = location.bottom();
+
+			// debug_i("RUN location (%s), pos (%s), run.pos (%s)", location.toString().c_str(), pos.toString().c_str(),
+			// 		run.pos.toString().c_str());
+
+			int16_t x = pos.x + run.pos.x;
+			int16_t y = pos.y + run.pos.y;
+
+			// Skip any runs which fall outside the destination area
+			if(y >= ymax) {
+				break;
+			}
+
+			cmd.begin(EVE::GP_BITMAPS);
+
+			uint8_t advdiff{0};
+			for(uint16_t charIndex = 0; y < ymax && charIndex < run.length; ++charIndex) {
+				char ch = text->read(run.offset + charIndex);
+
+				auto charMetrics = font->typeface.getMetrics(ch);
+
+				x -= advdiff;
+				if(x + charMetrics.xOffset < 0) {
+					debug_e("[[FONT X2]] %u, %d", x, charMetrics.xOffset);
+					x = -charMetrics.xOffset;
+				}
+
+				cmd.cell(ch);
+				vertex({x, y});
+
+				auto x1 = x + charMetrics.advance * options.scale.scaleX();
+				auto x2 = x + (charMetrics.xOffset + charMetrics.width) * options.scale.scaleX();
+				if(x1 >= x2) {
+					advdiff = 0;
+					x = x1;
+				} else {
+					advdiff = x2 - x1;
+					x = x2;
+				}
+			}
+
+			// Decorate run
+
+			auto line = [&](int8_t line) {
+				// Typeface may not  have room for this
+				if(line >= font->typeface.height()) {
+					// return;
+				}
+				// TODO
+				// memset(&data[x + size.w * line], 0xff, charMetrics.advance);
+				cmd.begin(EVE::GP_LINES);
+				int16_t x1 = pos.x + run.pos.x;
+				int16_t y = pos.y + run.pos.y + line;
+				int16_t x2 = x1 + run.width;
+				vertex({x1, y});
+				vertex({x2, y});
+			};
+
+			auto baseline = font->typeface.baseline();
+			if(font->style[FontStyle::Underscore]) {
+				line(baseline + 1);
+			}
+			if(font->style[FontStyle::DoubleUnderscore]) {
+				line(baseline + 1);
+				line(baseline + 3);
+			}
+			if(font->style[FontStyle::Overscore]) {
+				line(1);
+			}
+			if(font->style[FontStyle::DoubleOverscore]) {
+				line(1);
+				line(3);
+			}
+			if(font->style[FontStyle::Strikeout]) {
+				line(font->typeface.height() / 2);
+			}
+			if(font->style[FontStyle::DoubleStrikeout]) {
+				uint8_t c = font->typeface.height() / 2;
+				line(c - 1);
+				line(c + 2);
+			}
+
+			break;
+		}
+		}
+	}
 }
 
 }; // namespace Graphics
