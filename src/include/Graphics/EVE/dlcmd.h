@@ -532,7 +532,7 @@ void tag_mask(bool mask)
     write(&inst, sizeof(inst));
 }
 
-void vertex2f(uint32_t x, uint32_t y)
+void vertex2f(int32_t x, int32_t y)
 {
     struct Inst {
         uint32_t y: 15;

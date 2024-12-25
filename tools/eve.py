@@ -561,8 +561,8 @@ It is recommended to have an END for each BEGIN. However, advanced users may avo
 	DlCmd(0x2D, 'NOP', 'No operation'),
 	# Top 2 bits reserved for these commands
     DlCmd(0x40, 'VERTEX2F', 'Start the operation of graphics primitives at the specified screen coordinate, in the pixel precision defined by VERTEX_FORMAT.', [
-        Param('y', UInt32, stored_bits=15),
-        Param('x', UInt32, stored_bits=15),
+        Param('y', Int32, stored_bits=15),
+        Param('x', Int32, stored_bits=15),
     ]),
 	DlCmd(0x80, 'VERTEX2II', 'Start the operation of graphics primitive at the specified coordinates in pixel precision', [
         Param('cell', Cell),

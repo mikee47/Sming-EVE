@@ -67,7 +67,7 @@ private:
 		auto scale = display.getScale();
 		pt.x = pt.x * scale;
 		pt.y = pt.y * scale;
-		if(pt.x <= 511 && pt.y <= 511) {
+		if(unsigned(pt.x) <= 511 && unsigned(pt.y) <= 511) {
 			dl.vertex2ii(pt.x, pt.y, handle, cell);
 		} else {
 			dl.cell(cell);
