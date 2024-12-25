@@ -1,4 +1,5 @@
 #include "include/Graphics/EVE/Surface.h"
+#include "include/Graphics/EVE/RomFont.h"
 #include <Platform/System.h>
 
 namespace Graphics
@@ -15,8 +16,8 @@ Surface::Type EveSurface::getType() const
 Surface::Stat EveSurface::stat() const
 {
 	return Stat{
-		.used = cmd.length(),
-		.available = EVE_CMDFIFO_SIZE - cmd.length(),
+		.used = dl.length(),
+		.available = dl.available(),
 	};
 }
 
@@ -231,9 +232,8 @@ bool EveSurface::render(const Object& object, const Rect& location, std::unique_
 
 void EveSurface::reset()
 {
-	cmd.reset();
-	cmd.dlstart();
-	cmd.vertex_format(0);
+	dl.reset();
+	dl.vertex_format(0);
 }
 
 bool EveSurface::present(PresentCallback callback, void* param)
@@ -242,11 +242,11 @@ bool EveSurface::present(PresentCallback callback, void* param)
     Should transfer any buffered RAMG data, followed by command buffer.
     When transfer has completed we should release RAMG buffer.
     */
-	cmd.display();
-	cmd.swap();
-	debug_i("%s(%u)", __FUNCTION__, cmd.length());
+	dl.display();
+	debug_i("%s(%u)", __FUNCTION__, dl.length());
 
-	display.write(EVE::REG_CMDB_WRITE, cmd.get(), cmd.length());
+	display.write(EVE::EVE_RAM_DL, dl.get(), dl.length());
+	display.write8(EVE::REG_DLSWAP, EVE::EVE_DLSWAP_FRAME);
 	if(callback) {
 		System.queueCallback(callback, param);
 	}
@@ -273,10 +273,10 @@ void EveSurface::setColor(Color color)
 	PixelBuffer pbnew{color};
 	PixelBuffer pbcur{context.color};
 	if(pbnew.packed.alpha != pbcur.packed.alpha) {
-		cmd.color_a(pbnew.packed.alpha);
+		dl.color_a(pbnew.packed.alpha);
 	}
 	if(pbnew.packed.value != pbcur.packed.value) {
-		cmd.color(color);
+		dl.color(color);
 	}
 	context.color = color;
 }
@@ -308,23 +308,25 @@ void EveSurface::renderText(const Rect& location, const TextObject& object)
 			if(options.scale.scaleY() <= 1) {
 				options.style -= FontStyle::DotMatrix | FontStyle::HLine;
 			}
-			cmd.romfont(fontHandle, font->typeface.id());
+			FontMetrics metrics;
+			getRomFont(font->typeface.id(), metrics);
+			dl.bitmap_handle(fontHandle);
+			dl.bitmap_source(metrics.bitmap);
+			dl.bitmap_layout(metrics.format, metrics.stride, metrics.height);
 			auto h = font->typeface.height();
 			auto fontScaleX = scale * options.scale.scaleX();
 			auto fontScaleY = scale * options.scale.scaleY();
-			// debug_i("fontScale (%d, %d), scale 0x%08x", fontScaleX, fontScaleY, scale.value);
-			cmd.bitmap_size(EVE::BitmapFilter::NEAREST, EVE::BitmapWrap::BORDER, EVE::BitmapWrap::BORDER,
-							fontScaleX * h, fontScaleY * h);
-			cmd.loadidentity();
-			cmd.scale(fontScaleX, fontScaleY);
-			cmd.setmatrix();
+			dl.bitmap_size(EVE::BitmapFilter::NEAREST, EVE::BitmapWrap::BORDER, EVE::BitmapWrap::BORDER,
+						   fontScaleX * metrics.width, fontScaleY * metrics.height);
+			dl.bitmap_transform_a(1.0 / fontScaleX);
+			dl.bitmap_transform_e(1.0 / fontScaleY);
 			break;
 		}
 		case TextObject::Element::Kind::Color: {
 			auto& elem = static_cast<const TextObject::ColorElement&>(element);
 			options.fore = elem.fore;
 			options.back = elem.back;
-			cmd.color(options.fore.getColor());
+			dl.color(options.fore.getColor());
 			break;
 		}
 		case TextObject::Element::Kind::Run: {
@@ -342,7 +344,7 @@ void EveSurface::renderText(const Rect& location, const TextObject& object)
 				break;
 			}
 
-			cmd.begin(EVE::GP_BITMAPS);
+			dl.begin(EVE::GP_BITMAPS);
 
 			uint8_t advdiff{0};
 			for(uint16_t charIndex = 0; y < ymax && charIndex < run.length; ++charIndex) {
@@ -356,8 +358,12 @@ void EveSurface::renderText(const Rect& location, const TextObject& object)
 					x = -charMetrics.xOffset;
 				}
 
-				cmd.cell(ch);
-				vertex({x, y});
+				uint8_t cell = ch;
+				vertex({x, y}, fontHandle, cell);
+				// Emulate Bold if font doesn't support it
+				if(font->style[FontStyle::Bold]) {
+					vertex({x + 1, y + 1}, fontHandle, cell);
+				}
 
 				auto x1 = x + charMetrics.advance * options.scale.scaleX();
 				auto x2 = x + (charMetrics.xOffset + charMetrics.width) * options.scale.scaleX();
@@ -377,9 +383,7 @@ void EveSurface::renderText(const Rect& location, const TextObject& object)
 				if(line >= font->typeface.height()) {
 					// return;
 				}
-				// TODO
-				// memset(&data[x + size.w * line], 0xff, charMetrics.advance);
-				cmd.begin(EVE::GP_LINES);
+				dl.begin(EVE::GP_LINES);
 				int16_t x1 = pos.x + run.pos.x;
 				int16_t y = pos.y + run.pos.y + line;
 				int16_t x2 = x1 + run.width;
@@ -390,22 +394,19 @@ void EveSurface::renderText(const Rect& location, const TextObject& object)
 			auto baseline = font->typeface.baseline();
 			if(font->style[FontStyle::Underscore]) {
 				line(baseline + 1);
-			}
-			if(font->style[FontStyle::DoubleUnderscore]) {
+			} else if(font->style[FontStyle::DoubleUnderscore]) {
 				line(baseline + 1);
 				line(baseline + 3);
 			}
 			if(font->style[FontStyle::Overscore]) {
 				line(1);
-			}
-			if(font->style[FontStyle::DoubleOverscore]) {
+			} else if(font->style[FontStyle::DoubleOverscore]) {
 				line(1);
 				line(3);
 			}
 			if(font->style[FontStyle::Strikeout]) {
 				line(font->typeface.height() / 2);
-			}
-			if(font->style[FontStyle::DoubleStrikeout]) {
+			} else if(font->style[FontStyle::DoubleStrikeout]) {
 				uint8_t c = font->typeface.height() / 2;
 				line(c - 1);
 				line(c + 2);

@@ -57,23 +57,28 @@ private:
 	void setPointSize(uint16_t size)
 	{
 		if(context.pointSize != size) {
-			cmd.point_size(size);
+			dl.point_size(size);
 			context.pointSize = size;
 		}
 	}
 
-	void vertex(Point pt)
+	void vertex(Point pt, EVE::Handle handle = 0, EVE::Cell cell = 0)
 	{
 		auto scale = display.getScale();
 		pt.x = pt.x * scale;
 		pt.y = pt.y * scale;
-		cmd.vertex2f(pt);
+		if(pt.x <= 511 && pt.y <= 511) {
+			dl.vertex2ii(pt.x, pt.y, handle, cell);
+		} else {
+			dl.cell(cell);
+			dl.vertex2f(pt);
+		}
 	}
 
 	void begin(EVE::GraphicsPrimitive prim)
 	{
 		if(context.prim != prim) {
-			cmd.begin(prim);
+			dl.begin(prim);
 			context.prim = prim;
 		}
 	}
@@ -81,7 +86,7 @@ private:
 	void end()
 	{
 		if(context.prim != EVE::GP_NONE) {
-			cmd.end();
+			dl.end();
 			context.prim = EVE::GP_NONE;
 		}
 	}
@@ -89,7 +94,7 @@ private:
 	void renderText(const Rect& location, const TextObject& object);
 
 	EveDisplay& display;
-	EVE::CommandBuffer cmd;
+	EVE::DisplayList dl;
 	AddressWindow addrWindow;
 
 	Context context{};
