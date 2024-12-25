@@ -138,31 +138,34 @@ def generate_cpcmd_cpp():
 	return lines
 
 
-def print_lines(items: list, indent: str):
-	f = stdout
+def write_lines(f, items: list, indent: str = ''):
 	for item in items:
 		if item:
 			if isinstance(item, str):
 				f.write(f'{indent}{item}\n')
 			else:
-				print_lines(item, indent + '    ')
+				write_lines(f, item, indent + '    ')
 		elif item is not None:
 			f.write('\n')
 
 
 def main():
-	lines = [
+	header = [
 		'/*',
 		' *',
 		' * This file is auto-generated.',
 		' *',
 		' */',
-		'',
-		*generate_dlcmd_cpp(),
-		'',
-		*generate_cpcmd_cpp(),
+		''
 	]
-	print_lines(lines, '')
+
+	with open('dlcmd.h', 'w') as f:
+		write_lines(f, header + generate_dlcmd_cpp())
+
+	with open('cpcmd.h', 'w') as f:
+		write_lines(f, header + generate_cpcmd_cpp())
+
+	# print_lines(lines, '')
 
 
 if __name__ == '__main__':
