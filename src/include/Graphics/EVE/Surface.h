@@ -44,7 +44,8 @@ private:
 	struct Context {
 		EVE::GraphicsPrimitive prim = EVE::GP_NONE;
 		Color color{Color::White};
-		uint16_t pointSize{16};
+		EVE::PointSize pointSize{16};
+		EVE::LineWidth lineWidth{16};
 	};
 
 	void setColor(PackedColor color)
@@ -54,26 +55,9 @@ private:
 
 	void setColor(Color color);
 
-	void setPointSize(uint16_t size)
-	{
-		if(context.pointSize != size) {
-			dl.point_size(size);
-			context.pointSize = size;
-		}
-	}
-
-	void vertex(Point pt, EVE::Handle handle = 0, EVE::Cell cell = 0)
-	{
-		auto scale = display.getScale();
-		pt.x = pt.x * scale;
-		pt.y = pt.y * scale;
-		if(unsigned(pt.x) <= 511 && unsigned(pt.y) <= 511) {
-			dl.vertex2ii(pt.x, pt.y, handle, cell);
-		} else {
-			dl.cell(cell);
-			dl.vertex2f(pt);
-		}
-	}
+	void setPointSize(EVE::PointSize size);
+	void setLineWidth(EVE::LineWidth width);
+	void vertex(Point pt, EVE::Handle handle = 0, EVE::Cell cell = 0);
 
 	void begin(EVE::GraphicsPrimitive prim)
 	{

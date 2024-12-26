@@ -112,6 +112,7 @@ bool EveSurface::render(const Object& object, const Rect& location, std::unique_
 			brush.writePixel(Location{location, {}, obj.point}, &color);
 		}
 		setColor(color);
+		setPointSize(16);
 		begin(GP_POINTS);
 		vertex(pt);
 		return true;
@@ -119,8 +120,8 @@ bool EveSurface::render(const Object& object, const Rect& location, std::unique_
 
 	case Object::Kind::Rect: {
 		auto& obj = static_cast<const RectObject&>(object);
-		color = obj.pen.getColor();
-		setColor(color);
+		setColor(obj.pen.getColor());
+		setLineWidth(16 * obj.pen.width);
 		begin(EVE::GP_LINE_STRIP);
 		auto r = obj.rect + location.topLeft();
 		vertex(r.topLeft());
@@ -141,8 +142,7 @@ bool EveSurface::render(const Object& object, const Rect& location, std::unique_
 		// 	break;
 		// }
 		// return fillSmallRect(obj.brush, location, obj.rect);
-		color = obj.brush.getColor();
-		setColor(color);
+		setColor(obj.brush.getColor());
 		begin(EVE::GP_RECTS);
 		vertex(obj.rect.topLeft());
 		vertex(obj.rect.bottomRight());
@@ -151,8 +151,8 @@ bool EveSurface::render(const Object& object, const Rect& location, std::unique_
 
 	case Object::Kind::Line: {
 		auto& obj = static_cast<const LineObject&>(object);
-		color = obj.pen.getColor();
-		setColor(color);
+		setColor(obj.pen.getColor());
+		setLineWidth(16 * obj.pen.width);
 		begin(EVE::GP_LINES);
 		vertex(obj.pt1);
 		vertex(obj.pt2);
@@ -161,8 +161,8 @@ bool EveSurface::render(const Object& object, const Rect& location, std::unique_
 
 	case Object::Kind::Polyline: {
 		auto& obj = static_cast<const PolylineObject&>(object);
-		color = obj.pen.getColor();
-		setColor(color);
+		setColor(obj.pen.getColor());
+		setLineWidth(16 * obj.pen.width);
 		begin(obj.connected ? EVE::GP_LINE_STRIP : EVE::GP_LINES);
 		for(unsigned i = 0; i < obj.numPoints; ++i) {
 			vertex(obj[i]);
@@ -176,8 +176,7 @@ bool EveSurface::render(const Object& object, const Rect& location, std::unique_
 
 	case Object::Kind::FilledCircle: {
 		auto& obj = static_cast<const FilledCircleObject&>(object);
-		color = obj.brush.getColor();
-		setColor(color);
+		setColor(obj.brush.getColor());
 		begin(EVE::GP_POINTS);
 		setPointSize(16 * obj.radius);
 		vertex(obj.centre);
@@ -281,6 +280,37 @@ void EveSurface::setColor(Color color)
 	context.color = color;
 }
 
+void EveSurface::setPointSize(PointSize size)
+{
+	if(context.pointSize == size) {
+		return;
+	}
+	context.pointSize = size;
+	dl.point_size(size * display.getScale());
+}
+
+void EveSurface::setLineWidth(LineWidth width)
+{
+	if(context.lineWidth == width) {
+		return;
+	}
+	context.lineWidth = width;
+	dl.line_width(width * display.getScale());
+}
+
+void EveSurface::vertex(Point pt, EVE::Handle handle, EVE::Cell cell)
+{
+	auto scale = display.getScale();
+	pt.x = pt.x * scale;
+	pt.y = pt.y * scale;
+	if(unsigned(pt.x) <= 511 && unsigned(pt.y) <= 511) {
+		dl.vertex2ii(pt.x, pt.y, handle, cell);
+	} else {
+		dl.cell(cell);
+		dl.vertex2f(pt);
+	}
+}
+
 void EveSurface::renderText(const Rect& location, const TextObject& object)
 {
 	Point pos = location.topLeft() + object.bounds.topLeft();
@@ -326,7 +356,7 @@ void EveSurface::renderText(const Rect& location, const TextObject& object)
 			auto& elem = static_cast<const TextObject::ColorElement&>(element);
 			options.fore = elem.fore;
 			options.back = elem.back;
-			dl.color(options.fore.getColor());
+			setColor(options.fore.getColor());
 			break;
 		}
 		case TextObject::Element::Kind::Run: {
@@ -344,7 +374,7 @@ void EveSurface::renderText(const Rect& location, const TextObject& object)
 				break;
 			}
 
-			dl.begin(EVE::GP_BITMAPS);
+			begin(EVE::GP_BITMAPS);
 
 			uint8_t advdiff{0};
 			for(uint16_t charIndex = 0; y < ymax && charIndex < run.length; ++charIndex) {
@@ -383,7 +413,8 @@ void EveSurface::renderText(const Rect& location, const TextObject& object)
 				if(line >= font->typeface.height()) {
 					// return;
 				}
-				dl.begin(EVE::GP_LINES);
+				setLineWidth(16);
+				begin(EVE::GP_LINES);
 				int16_t x1 = pos.x + run.pos.x;
 				int16_t y = pos.y + run.pos.y + line;
 				int16_t x2 = x1 + run.width;

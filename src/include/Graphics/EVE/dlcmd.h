@@ -13,7 +13,7 @@ void alpha_func(TestFunction func, uint8_t ref)
         uint8_t code: 8;
     };
     static_assert(sizeof(Inst) == 4, "Bad Inst");
-    Inst inst{ref, uint32_t(uint16_t(func)), 0, 0x09};
+    Inst inst{ref, uint32_t(func), 0, 0x09};
     write(&inst, sizeof(inst));
 }
 
@@ -25,7 +25,7 @@ void begin(GraphicsPrimitive prim)
         uint8_t code: 8;
     };
     static_assert(sizeof(Inst) == 4, "Bad Inst");
-    Inst inst{uint32_t(uint16_t(prim)), 0, 0x1f};
+    Inst inst{uint32_t(prim), 0, 0x1f};
     write(&inst, sizeof(inst));
 }
 
@@ -37,7 +37,7 @@ void bitmap_handle(Handle handle)
         uint8_t code: 8;
     };
     static_assert(sizeof(Inst) == 4, "Bad Inst");
-    Inst inst{uint32_t(uint16_t(handle)), 0, 0x05};
+    Inst inst{uint32_t(handle), 0, 0x05};
     write(&inst, sizeof(inst));
 }
 
@@ -50,7 +50,7 @@ void bitmap_layout(BitmapFormat format, uint32_t linestride, uint32_t height)
         uint8_t code: 8;
     };
     static_assert(sizeof(Inst) == 4, "Bad Inst");
-    Inst inst{height, linestride, uint32_t(uint16_t(format)), 0x07};
+    Inst inst{height, linestride, uint32_t(format), 0x07};
     write(&inst, sizeof(inst));
 }
 
@@ -79,7 +79,7 @@ void bitmap_size(BitmapFilter filter, BitmapWrap wrapx, BitmapWrap wrapy, uint32
         uint8_t code: 8;
     };
     static_assert(sizeof(Inst) == 4, "Bad Inst");
-    Inst inst{height, width, uint32_t(uint16_t(wrapy)), uint32_t(uint16_t(wrapx)), uint32_t(uint16_t(filter)), 0, 0x08};
+    Inst inst{height, width, uint32_t(wrapy), uint32_t(wrapx), uint32_t(filter), 0, 0x08};
     write(&inst, sizeof(inst));
 }
 
@@ -104,77 +104,77 @@ void bitmap_source(Address addr)
         uint8_t code: 8;
     };
     static_assert(sizeof(Inst) == 4, "Bad Inst");
-    Inst inst{uint32_t(uint32_t(addr)), 0, 0x01};
+    Inst inst{uint32_t(addr), 0, 0x01};
     write(&inst, sizeof(inst));
 }
 
 void bitmap_transform_a(Fixed8 a)
 {
     struct Inst {
-        uint32_t a: 17;
+        int32_t a: 17;
         uint32_t unused: 7;
         uint8_t code: 8;
     };
     static_assert(sizeof(Inst) == 4, "Bad Inst");
-    Inst inst{uint32_t(int32_t(a)), 0, 0x15};
+    Inst inst{int32_t(a), 0, 0x15};
     write(&inst, sizeof(inst));
 }
 
 void bitmap_transform_b(Fixed8 b)
 {
     struct Inst {
-        uint32_t b: 17;
+        int32_t b: 17;
         uint32_t unused: 7;
         uint8_t code: 8;
     };
     static_assert(sizeof(Inst) == 4, "Bad Inst");
-    Inst inst{uint32_t(int32_t(b)), 0, 0x16};
+    Inst inst{int32_t(b), 0, 0x16};
     write(&inst, sizeof(inst));
 }
 
 void bitmap_transform_c(Fixed8 c)
 {
     struct Inst {
-        uint32_t c: 24;
+        int32_t c: 24;
         uint8_t code: 8;
     };
     static_assert(sizeof(Inst) == 4, "Bad Inst");
-    Inst inst{uint32_t(int32_t(c)), 0x17};
+    Inst inst{int32_t(c), 0x17};
     write(&inst, sizeof(inst));
 }
 
 void bitmap_transform_d(Fixed8 d)
 {
     struct Inst {
-        uint32_t d: 17;
+        int32_t d: 17;
         uint32_t unused: 7;
         uint8_t code: 8;
     };
     static_assert(sizeof(Inst) == 4, "Bad Inst");
-    Inst inst{uint32_t(int32_t(d)), 0, 0x18};
+    Inst inst{int32_t(d), 0, 0x18};
     write(&inst, sizeof(inst));
 }
 
 void bitmap_transform_e(Fixed8 e)
 {
     struct Inst {
-        uint32_t e: 17;
+        int32_t e: 17;
         uint32_t unused: 7;
         uint8_t code: 8;
     };
     static_assert(sizeof(Inst) == 4, "Bad Inst");
-    Inst inst{uint32_t(int32_t(e)), 0, 0x19};
+    Inst inst{int32_t(e), 0, 0x19};
     write(&inst, sizeof(inst));
 }
 
 void bitmap_transform_f(Fixed8 f)
 {
     struct Inst {
-        uint32_t f: 24;
+        int32_t f: 24;
         uint8_t code: 8;
     };
     static_assert(sizeof(Inst) == 4, "Bad Inst");
-    Inst inst{uint32_t(int32_t(f)), 0x1a};
+    Inst inst{int32_t(f), 0x1a};
     write(&inst, sizeof(inst));
 }
 
@@ -187,7 +187,7 @@ void blend_func(BlendFunction src, BlendFunction dst)
         uint8_t code: 8;
     };
     static_assert(sizeof(Inst) == 4, "Bad Inst");
-    Inst inst{uint32_t(uint16_t(dst)), uint32_t(uint16_t(src)), 0, 0x0b};
+    Inst inst{uint32_t(dst), uint32_t(src), 0, 0x0b};
     write(&inst, sizeof(inst));
 }
 
@@ -199,7 +199,7 @@ void call(DisplayListOffset dest)
         uint8_t code: 8;
     };
     static_assert(sizeof(Inst) == 4, "Bad Inst");
-    Inst inst{uint32_t(uint16_t(dest)), 0, 0x1d};
+    Inst inst{uint32_t(dest), 0, 0x1d};
     write(&inst, sizeof(inst));
 }
 
@@ -211,7 +211,7 @@ void cell(Cell cell)
         uint8_t code: 8;
     };
     static_assert(sizeof(Inst) == 4, "Bad Inst");
-    Inst inst{uint32_t(uint16_t(cell)), 0, 0x06};
+    Inst inst{uint32_t(cell), 0, 0x06};
     write(&inst, sizeof(inst));
 }
 
@@ -225,7 +225,7 @@ void clear(bool c, bool s, bool t)
         uint8_t code: 8;
     };
     static_assert(sizeof(Inst) == 4, "Bad Inst");
-    Inst inst{uint32_t(uint16_t(t)), uint32_t(uint16_t(s)), uint32_t(uint16_t(c)), 0, 0x26};
+    Inst inst{uint32_t(t), uint32_t(s), uint32_t(c), 0, 0x26};
     write(&inst, sizeof(inst));
 }
 
@@ -237,7 +237,7 @@ void clear_color_a(ColorChannel alpha)
         uint8_t code: 8;
     };
     static_assert(sizeof(Inst) == 4, "Bad Inst");
-    Inst inst{uint32_t(uint16_t(alpha)), 0, 0x0f};
+    Inst inst{uint32_t(alpha), 0, 0x0f};
     write(&inst, sizeof(inst));
 }
 
@@ -250,7 +250,7 @@ void clear_color_rgb(ColorChannel red, ColorChannel green, ColorChannel blue)
         uint8_t code: 8;
     };
     static_assert(sizeof(Inst) == 4, "Bad Inst");
-    Inst inst{uint32_t(uint16_t(blue)), uint32_t(uint16_t(green)), uint32_t(uint16_t(red)), 0x02};
+    Inst inst{uint32_t(blue), uint32_t(green), uint32_t(red), 0x02};
     write(&inst, sizeof(inst));
 }
 
@@ -262,7 +262,7 @@ void clear_stencil(ColorChannel s)
         uint8_t code: 8;
     };
     static_assert(sizeof(Inst) == 4, "Bad Inst");
-    Inst inst{uint32_t(uint16_t(s)), 0, 0x11};
+    Inst inst{uint32_t(s), 0, 0x11};
     write(&inst, sizeof(inst));
 }
 
@@ -274,7 +274,7 @@ void clear_tag(Tag tag)
         uint8_t code: 8;
     };
     static_assert(sizeof(Inst) == 4, "Bad Inst");
-    Inst inst{uint32_t(uint16_t(tag)), 0, 0x12};
+    Inst inst{uint32_t(tag), 0, 0x12};
     write(&inst, sizeof(inst));
 }
 
@@ -286,7 +286,7 @@ void color_a(ColorChannel alpha)
         uint8_t code: 8;
     };
     static_assert(sizeof(Inst) == 4, "Bad Inst");
-    Inst inst{uint32_t(uint16_t(alpha)), 0, 0x10};
+    Inst inst{uint32_t(alpha), 0, 0x10};
     write(&inst, sizeof(inst));
 }
 
@@ -301,7 +301,7 @@ void color_mask(bool r, bool g, bool b, bool a)
         uint8_t code: 8;
     };
     static_assert(sizeof(Inst) == 4, "Bad Inst");
-    Inst inst{uint32_t(uint16_t(a)), uint32_t(uint16_t(b)), uint32_t(uint16_t(g)), uint32_t(uint16_t(r)), 0, 0x20};
+    Inst inst{uint32_t(a), uint32_t(b), uint32_t(g), uint32_t(r), 0, 0x20};
     write(&inst, sizeof(inst));
 }
 
@@ -314,7 +314,7 @@ void color_rgb(ColorChannel red, ColorChannel green, ColorChannel blue)
         uint8_t code: 8;
     };
     static_assert(sizeof(Inst) == 4, "Bad Inst");
-    Inst inst{uint32_t(uint16_t(blue)), uint32_t(uint16_t(green)), uint32_t(uint16_t(red)), 0x04};
+    Inst inst{uint32_t(blue), uint32_t(green), uint32_t(red), 0x04};
     write(&inst, sizeof(inst));
 }
 
@@ -348,7 +348,7 @@ void jump(DisplayListOffset dest)
         uint8_t code: 8;
     };
     static_assert(sizeof(Inst) == 4, "Bad Inst");
-    Inst inst{uint32_t(uint16_t(dest)), 0, 0x1e};
+    Inst inst{uint32_t(dest), 0, 0x1e};
     write(&inst, sizeof(inst));
 }
 
@@ -395,7 +395,7 @@ void palette_source(Address addr)
         uint8_t code: 8;
     };
     static_assert(sizeof(Inst) == 4, "Bad Inst");
-    Inst inst{uint32_t(uint32_t(addr)), 0, 0x2a};
+    Inst inst{uint32_t(addr), 0, 0x2a};
     write(&inst, sizeof(inst));
 }
 
@@ -479,7 +479,7 @@ void stencil_func(TestFunction func, uint8_t ref, uint8_t mask)
         uint8_t code: 8;
     };
     static_assert(sizeof(Inst) == 4, "Bad Inst");
-    Inst inst{mask, ref, uint32_t(uint16_t(func)), 0, 0x0a};
+    Inst inst{mask, ref, uint32_t(func), 0, 0x0a};
     write(&inst, sizeof(inst));
 }
 
@@ -504,7 +504,7 @@ void stencil_op(StencilOp sfail, StencilOp spass)
         uint8_t code: 8;
     };
     static_assert(sizeof(Inst) == 4, "Bad Inst");
-    Inst inst{uint32_t(uint16_t(spass)), uint32_t(uint16_t(sfail)), 0, 0x0c};
+    Inst inst{uint32_t(spass), uint32_t(sfail), 0, 0x0c};
     write(&inst, sizeof(inst));
 }
 
@@ -516,7 +516,7 @@ void tag(Tag tag)
         uint8_t code: 8;
     };
     static_assert(sizeof(Inst) == 4, "Bad Inst");
-    Inst inst{uint32_t(uint16_t(tag)), 0, 0x03};
+    Inst inst{uint32_t(tag), 0, 0x03};
     write(&inst, sizeof(inst));
 }
 
@@ -528,15 +528,15 @@ void tag_mask(bool mask)
         uint8_t code: 8;
     };
     static_assert(sizeof(Inst) == 4, "Bad Inst");
-    Inst inst{uint32_t(uint16_t(mask)), 0, 0x14};
+    Inst inst{uint32_t(mask), 0, 0x14};
     write(&inst, sizeof(inst));
 }
 
 void vertex2f(int32_t x, int32_t y)
 {
     struct Inst {
-        uint32_t y: 15;
-        uint32_t x: 15;
+        int32_t y: 15;
+        int32_t x: 15;
         uint8_t code: 2;
     };
     static_assert(sizeof(Inst) == 4, "Bad Inst");
@@ -554,7 +554,7 @@ void vertex2ii(uint32_t x, uint32_t y, Handle handle, Cell cell)
         uint8_t code: 2;
     };
     static_assert(sizeof(Inst) == 4, "Bad Inst");
-    Inst inst{uint32_t(uint16_t(cell)), uint32_t(uint16_t(handle)), y, x, 0x02};
+    Inst inst{uint32_t(cell), uint32_t(handle), y, x, 0x02};
     write(&inst, sizeof(inst));
 }
 

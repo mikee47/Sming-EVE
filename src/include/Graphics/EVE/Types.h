@@ -11,6 +11,9 @@ using Handle = uint8_t;
 using Cell = uint8_t;
 using DisplayListOffset = uint16_t;
 
+using PointSize = uint16_t; ///< In sixteenth pixels
+using LineWidth = uint16_t; ///< In sixteenth pixels
+
 // Used with co-processor commands
 using RGB = Color;  //uint32_t;
 using ARGB = Color; //uint32_t;
