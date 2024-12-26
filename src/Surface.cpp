@@ -320,6 +320,7 @@ void EveSurface::renderText(const Rect& location, const TextObject& object)
 	const TextAsset* text{};
 	GlyphObject::Options options;
 	const EVE::Handle fontHandle{0};
+	const FontMetrics* metrics{};
 
 	for(auto& element : object.elements) {
 		switch(element.kind) {
@@ -338,18 +339,20 @@ void EveSurface::renderText(const Rect& location, const TextObject& object)
 			if(options.scale.scaleY() <= 1) {
 				options.style -= FontStyle::DotMatrix | FontStyle::HLine;
 			}
-			FontMetrics metrics;
-			getRomFont(font->typeface.id(), metrics);
-			dl.bitmap_handle(fontHandle);
-			dl.bitmap_source(metrics.bitmap);
-			dl.bitmap_layout(metrics.format, metrics.stride, metrics.height);
-			auto h = font->typeface.height();
-			auto fontScaleX = scale * options.scale.scaleX();
-			auto fontScaleY = scale * options.scale.scaleY();
-			dl.bitmap_size(EVE::BitmapFilter::NEAREST, EVE::BitmapWrap::BORDER, EVE::BitmapWrap::BORDER,
-						   fontScaleX * metrics.width, fontScaleY * metrics.height);
-			dl.bitmap_transform_a(1.0 / fontScaleX);
-			dl.bitmap_transform_e(1.0 / fontScaleY);
+			metrics = static_cast<const FontMetrics*>(font->typeface.getDeviceData());
+			if(!metrics) {
+				debug_e("Not a ROM font");
+			} else {
+				dl.bitmap_handle(fontHandle);
+				dl.bitmap_source(metrics->bitmap);
+				dl.bitmap_layout(metrics->format(), metrics->stride, metrics->height);
+				auto fontScaleX = scale * options.scale.scaleX();
+				auto fontScaleY = scale * options.scale.scaleY();
+				dl.bitmap_size(EVE::BitmapFilter::NEAREST, EVE::BitmapWrap::BORDER, EVE::BitmapWrap::BORDER,
+							   fontScaleX * metrics->width, fontScaleY * metrics->height);
+				dl.bitmap_transform_a(1.0 / fontScaleX);
+				dl.bitmap_transform_e(1.0 / fontScaleY);
+			}
 			break;
 		}
 		case TextObject::Element::Kind::Color: {
@@ -360,6 +363,10 @@ void EveSurface::renderText(const Rect& location, const TextObject& object)
 			break;
 		}
 		case TextObject::Element::Kind::Run: {
+			if(!font || !metrics) {
+				break;
+			}
+
 			auto& run = static_cast<const TextObject::RunElement&>(element);
 			auto ymax = location.bottom();
 
@@ -377,9 +384,9 @@ void EveSurface::renderText(const Rect& location, const TextObject& object)
 			begin(EVE::GP_BITMAPS);
 
 			uint8_t advdiff{0};
-			for(uint16_t charIndex = 0; y < ymax && charIndex < run.length; ++charIndex) {
-				char ch = text->read(run.offset + charIndex);
-
+			char textbuf[run.length];
+			text->read(run.offset, textbuf, run.length);
+			for(uint8_t ch : textbuf) {
 				auto charMetrics = font->typeface.getMetrics(ch);
 
 				x -= advdiff;
@@ -388,11 +395,11 @@ void EveSurface::renderText(const Rect& location, const TextObject& object)
 					x = -charMetrics.xOffset;
 				}
 
-				uint8_t cell = ch;
+				uint8_t cell = ch - metrics->firstchar;
 				vertex({x, y}, fontHandle, cell);
 				// Emulate Bold if font doesn't support it
 				if(font->style[FontStyle::Bold]) {
-					vertex({x + 1, y + 1}, fontHandle, cell);
+					vertex(Point(x + 1, y + 1), fontHandle, cell);
 				}
 
 				auto x1 = x + charMetrics.advance * options.scale.scaleX();
@@ -411,7 +418,7 @@ void EveSurface::renderText(const Rect& location, const TextObject& object)
 			auto line = [&](int8_t line) {
 				// Typeface may not  have room for this
 				if(line >= font->typeface.height()) {
-					// return;
+					return;
 				}
 				setLineWidth(16);
 				begin(EVE::GP_LINES);

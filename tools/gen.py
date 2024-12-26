@@ -1,6 +1,8 @@
 import eve
 from eve import align
 from sys import stdout
+import os
+import json
 
 def camel(s: str) -> str:
 	s = s.lower()
@@ -40,13 +42,15 @@ def generate_dlcmd_cpp():
 			code = cmd.code
 		packing_bits = 32 - cmd.total_bits - code_bits
 
+		def get_type(param):
+			return 'int32_t' if param.typedef.signed else 'uint32_t'
 		inst_def = [
-			*(f'uint32_t {param.name}: {param.bitcount};' for param in params),
+			*(f'{get_type(param)} {param.name}: {param.bitcount};' for param in params),
 			f'uint32_t unused: {packing_bits};' if packing_bits else None,
 			f'uint8_t code: {code_bits};',
 		]
 		def cast_param(param):
-			return param.name if param.typedef.is_int else f'uint32_t({param.basetype}({param.name}))'
+			return param.name if param.typedef.is_int else f'{get_type(param)}({param.name})'
 		inst = [cast_param(param) for param in params]
 		if packing_bits:
 			inst.append('0')
@@ -138,6 +142,55 @@ def generate_cpcmd_cpp():
 	return lines
 
 
+def generate_romfonts_cpp():
+	LOG2_BPP = dict([
+		(1, 0),
+		(2, 1),
+		(4, 2),
+		(8, 3),
+	])
+	lines = []
+	path = os.path.dirname(__file__)
+	for handle in range(16, 35):
+		filename = os.path.join(path, f'../resource/fonts/romfont{handle}.evf')
+		with open(filename, 'r') as f:
+			data = json.load(f)
+		char_width = data['char_width']
+		firstchar = -1
+		lastchar = -1
+		for i, c in enumerate(char_width):
+			if c:
+				lastchar = i
+				if firstchar < 0:
+					firstchar = i
+		char_width = char_width[firstchar:lastchar+1]
+		stride = data['stride']
+		width = data['width']
+		height = data['height']
+		bitmap = data['bitmap']
+		bitmap = int(bitmap, 0) + firstchar * stride * height
+		numchars = 1 + lastchar - firstchar
+		if handle in [17, 19]:
+			firstchar += 128
+		lines += [
+			'{',
+			[
+				f'// Font {handle}',
+				'.char_width = {' + ''.join(f'{w},' for w in char_width) + '},',
+				f'.alpha = {LOG2_BPP[data['bpp']]},',
+				f'.stride = {stride},',
+				f'.width = {width},',
+				f'.height = {height},',
+				f'.descent = {data['descent']},',
+				f'.firstchar = {firstchar},',
+				f'.numchars = {numchars},',
+				f'.bitmap = 0x{bitmap:x},',
+			],
+			'},'
+		]
+	return lines
+
+
 def write_lines(f, items: list, indent: str = ''):
 	for item in items:
 		if item:
@@ -165,7 +218,8 @@ def main():
 	with open('cpcmd.h', 'w') as f:
 		write_lines(f, header + generate_cpcmd_cpp())
 
-	# print_lines(lines, '')
+	with open('romfonts.cpp.txt', 'w') as f:
+		write_lines(f, header + generate_romfonts_cpp())
 
 
 if __name__ == '__main__':
