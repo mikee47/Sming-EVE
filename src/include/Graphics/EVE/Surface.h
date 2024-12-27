@@ -41,13 +41,6 @@ public:
 	bool fillRect(PackedColor color, const Rect& rect) override;
 
 private:
-	struct Context {
-		EVE::GraphicsPrimitive prim = EVE::GP_NONE;
-		Color color{Color::White};
-		EVE::PointSize pointSize{16};
-		EVE::LineWidth lineWidth{16};
-	};
-
 	void setColor(PackedColor color)
 	{
 		setColor(unpack(color, PixelFormat::RGB565));
@@ -61,6 +54,7 @@ private:
 
 	void begin(EVE::GraphicsPrimitive prim)
 	{
+		auto& context = display.context;
 		if(context.prim != prim) {
 			dl.begin(prim);
 			context.prim = prim;
@@ -69,6 +63,7 @@ private:
 
 	void end()
 	{
+		auto& context = display.context;
 		if(context.prim != EVE::GP_NONE) {
 			dl.end();
 			context.prim = EVE::GP_NONE;
@@ -80,8 +75,6 @@ private:
 	EveDisplay& display;
 	EVE::DisplayList dl;
 	AddressWindow addrWindow;
-
-	Context context{};
 };
 
 } // namespace Graphics

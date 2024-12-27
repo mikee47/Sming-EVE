@@ -78,6 +78,14 @@ public:
 		uint8_t pclk;		 ///< PCLK frequency divider, 0=disable
 	};
 
+	struct Context {
+		EVE::GraphicsPrimitive prim = EVE::GP_NONE;
+		Color color{Color::White};
+		EVE::Handle handle{0};
+		EVE::PointSize pointSize{16};
+		EVE::LineWidth lineWidth{16};
+	};
+
 	using MemoryDevice::MemoryDevice;
 
 	size_t getMemorySize() const override
@@ -155,9 +163,11 @@ public:
 	Surface* createSurface(size_t bufferSize = 0) override;
 
 private:
+	friend class EveSurface;
 	void cmdWrite(EVE::HostCommand cmd, uint8_t param);
 
 	Size nativeSize{};
+	Context context{};
 	Orientation orientation{};
 	EVE::Fixed8 scale{1};
 };

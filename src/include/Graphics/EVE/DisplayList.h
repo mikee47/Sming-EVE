@@ -1,3 +1,5 @@
+#pragma once
+
 #include "EVE.h"
 #include "Types.h"
 #include <Graphics/Colors.h>

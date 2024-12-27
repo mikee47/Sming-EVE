@@ -263,6 +263,7 @@ bool EveSurface::fillRect(PackedColor color, const Rect& rect)
 
 void EveSurface::setColor(Color color)
 {
+	auto& context = display.context;
 	if(context.color == color) {
 		return;
 	}
@@ -282,6 +283,7 @@ void EveSurface::setColor(Color color)
 
 void EveSurface::setPointSize(PointSize size)
 {
+	auto& context = display.context;
 	if(context.pointSize == size) {
 		return;
 	}
@@ -291,6 +293,7 @@ void EveSurface::setPointSize(PointSize size)
 
 void EveSurface::setLineWidth(LineWidth width)
 {
+	auto& context = display.context;
 	if(context.lineWidth == width) {
 		return;
 	}
