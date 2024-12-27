@@ -11,6 +11,8 @@ using Handle = uint8_t;
 using Cell = uint8_t;
 using DisplayListOffset = uint16_t;
 
+constexpr Handle invalidHandle{255};
+
 using PointSize = uint16_t; ///< In sixteenth pixels
 using LineWidth = uint16_t; ///< In sixteenth pixels
 

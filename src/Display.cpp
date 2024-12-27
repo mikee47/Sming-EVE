@@ -1,5 +1,6 @@
 #include "include/Graphics/EVE/Display.h"
 #include "include/Graphics/EVE/Surface.h"
+#include "include/Graphics/EVE/RomFont.h"
 #include <Clock.h>
 #include <Platform/Timers.h>
 
@@ -229,6 +230,184 @@ PixelFormat EveDisplay::getPixelFormat() const
 Surface* EveDisplay::createSurface(size_t bufferSize)
 {
 	return new EveSurface(*this, bufferSize);
+}
+
+/* EveDisplay */
+
+EveDisplay::BitmapSlot* EveDisplay::findBitmapSlot(AssetID id)
+{
+	for(auto& slot : bitmaps) {
+		if(slot.id == id) {
+			return &slot;
+		}
+	}
+
+	return nullptr;
+}
+
+const EveDisplay::BitmapSlot* EveDisplay::getBitmapSlot(AssetID id) const
+{
+	auto slot = const_cast<EveDisplay*>(this)->findBitmapSlot(id);
+	if(!slot) {
+		debug_w("[EVE] Slot not found for id %u", id);
+	}
+	return slot;
+}
+
+EveDisplay::BitmapSlot* EveDisplay::getFreeSlot()
+{
+	auto slot = findBitmapSlot(0);
+	if(!slot) {
+		debug_w("[EVE] No free slots");
+	}
+	return slot;
+}
+
+const EveDisplay::BitmapSlot* EveDisplay::loadTypeface(const TypeFace& typeface, const GlyphOptions& options)
+{
+	auto slot = findBitmapSlot(typeface.id());
+	if(slot) {
+		// Already loaded
+		return slot;
+	}
+
+	slot = getFreeSlot();
+	if(slot == nullptr) {
+		return nullptr;
+	}
+
+	auto romfont = static_cast<const FontMetrics*>(typeface.getDeviceData());
+	if(romfont) {
+		// A ROM font - doesn't require loading
+		debug_i("[EVE] Loaded ROM font %u", typeface.id());
+		*slot = BitmapSlot{
+			.address = romfont->bitmap,
+			.format = romfont->format(),
+			.id = typeface.id(),
+			.stride = romfont->stride,
+			.width = romfont->width,
+			.height = romfont->height,
+		};
+		return slot;
+	}
+
+	/*
+	To conserve storage glyph bitmaps differ in size, which requires extra setup for each character.
+	We can expand the glyphs to a consistent size for more efficient display list construction.
+	*/
+	auto loadAddress = nextRamAddress;
+	// Determine minimum bounding rect for all glyphs
+	uint8_t alpha{};
+	uint8_t width{0};
+	uint8_t height{0};
+	unsigned maxPixels{0};
+	for(unsigned blockIndex = 0;; ++blockIndex) {
+		GlyphBlock block = typeface.getBlock(blockIndex);
+		if(!block.length) {
+			break;
+		}
+		uint16_t ch = block.codePoint;
+		while(block.length--) {
+			auto metrics = typeface.getMetrics(ch++);
+			alpha = metrics.alpha;
+			width = std::max(width, metrics.width);
+			height = std::max(height, metrics.height);
+			maxPixels = std::max(maxPixels, unsigned(metrics.width) * metrics.height);
+		}
+	}
+
+	const uint8_t bitsPerPixel = 1 << alpha;
+	const uint8_t pixelsPerByte = 8 / bitsPerPixel;
+	const uint8_t stride = (width + pixelsPerByte - 1) / pixelsPerByte;
+
+	const unsigned bufSize = stride * height;
+	debug_i("bufSize %u, yadv %u, stride %u, size (%u, %u)", bufSize, typeface.height(), stride, width, height);
+
+	auto buffer = std::make_unique<uint8_t[]>(bufSize);
+	auto glyphDataSize = (maxPixels + pixelsPerByte - 1) / pixelsPerByte;
+	auto glyphData = std::make_unique<uint8_t[]>(glyphDataSize);
+	auto addr = loadAddress;
+	for(unsigned blockIndex = 0;; ++blockIndex) {
+		GlyphBlock block = typeface.getBlock(blockIndex);
+		if(!block.length) {
+			break;
+		}
+		auto ch = block.codePoint;
+		for(; block.length--; ++ch, addr += bufSize) {
+			auto glyph = typeface.getGlyph(ch, options);
+			auto& metrics = glyph->getMetrics();
+			memset(buffer.get(), 0, bufSize);
+			glyph->readRaw(glyphData.get(), glyphDataSize);
+			uint8_t* src = glyphData.get();
+			auto dstrow = buffer.get();
+			if(bitsPerPixel == 8) {
+				for(unsigned y = 0; y < metrics.height; ++y, src += metrics.width, dstrow += stride) {
+					memcpy(dstrow, src, metrics.width);
+				}
+			} else {
+				uint8_t mask = (1 << bitsPerPixel) - 1;
+				uint8_t srcbyte = 0;
+				uint8_t srcshift = 0;
+				for(unsigned y = 0; y < metrics.height; ++y, dstrow += stride) {
+					auto dst = dstrow;
+					uint8_t dstbyte{0};
+					uint8_t dstshift = 8;
+					for(unsigned x = 0; x < metrics.width; ++x) {
+						if(srcshift == 0) {
+							srcbyte = *src++;
+							srcshift = 8;
+						}
+						srcshift -= bitsPerPixel;
+						dstshift -= bitsPerPixel;
+						dstbyte |= ((srcbyte >> srcshift) & mask) << dstshift;
+						if(dstshift == 0) {
+							*dst++ = dstbyte;
+							dstbyte = 0;
+							dstshift = 8;
+						}
+					}
+					if(dstshift != 8) {
+						*dst = dstbyte;
+					}
+				}
+			}
+
+			write(addr, buffer.get(), bufSize);
+		}
+	}
+
+	nextRamAddress = addr;
+
+	unsigned bmSize = addr - loadAddress;
+	debug_i("Loaded face %u @ 0x%06x, %u bytes, bitsPerPixel %u", typeface.id(), loadAddress, bmSize, bitsPerPixel);
+
+	const EVE::BitmapFormat formats[]{
+		EVE::BMF_L1,
+		EVE::BMF_L2,
+		EVE::BMF_L4,
+		EVE::BMF_L8,
+	};
+
+	*slot = BitmapSlot{
+		.address = loadAddress,
+		.format = formats[alpha],
+		.id = typeface.id(),
+		.stride = stride,
+		.width = width,
+		.height = height,
+	};
+
+	return slot;
+}
+
+const EveDisplay::BitmapSlot* EveDisplay::loadTypeface(const Font& font, uint8_t typefaceIndex,
+													   const GlyphOptions& options)
+{
+	auto typeface = font.getFace(typefaceIndex);
+	if(!typeface) {
+		return nullptr;
+	}
+	return loadTypeface(*typeface, options);
 }
 
 } // namespace Graphics

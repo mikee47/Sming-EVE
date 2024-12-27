@@ -8,7 +8,7 @@ namespace Graphics
 class EveSurface : public Surface
 {
 public:
-	EveSurface(EveDisplay& display, size_t bufferSize) : display(display)
+	EveSurface(EveDisplay& display, size_t) : display(display)
 	{
 		reset();
 	}
@@ -50,6 +50,17 @@ private:
 
 	void setPointSize(EVE::PointSize size);
 	void setLineWidth(EVE::LineWidth width);
+
+	void setHandle(EVE::Handle handle)
+	{
+		auto& context = display.context;
+		if(handle == context.handle) {
+			return;
+		}
+		context.handle = handle;
+		dl.bitmap_handle(handle);
+	}
+
 	void vertex(Point pt, EVE::Handle handle = 0, EVE::Cell cell = 0);
 
 	void begin(EVE::GraphicsPrimitive prim)

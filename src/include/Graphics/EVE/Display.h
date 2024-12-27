@@ -86,6 +86,19 @@ public:
 		EVE::LineWidth lineWidth{16};
 	};
 
+	/*
+	* @brief Details for loaded bitmap instance
+	*/
+	struct BitmapSlot {
+		uint32_t address : 24; ///< Location of asset in RAMG
+		EVE::BitmapFormat format;
+		// EVE::Handle handle : 8;
+		AssetID id; ///< Associated asset, 0 is 'unassigned'
+		uint8_t stride;
+		uint8_t width;
+		uint8_t height;
+	};
+
 	using MemoryDevice::MemoryDevice;
 
 	size_t getMemorySize() const override
@@ -148,6 +161,33 @@ public:
 		return scale;
 	}
 
+	/**
+	 * @brief Load a typeface into RAMG so it can be used in a display list
+	 * @param typeface
+	 * @retval BitmapSlot* Pointer to allocated bitmap slot, or nullptr on failure
+	 */
+	const BitmapSlot* loadTypeface(const TypeFace& typeface, const GlyphOptions& options = {});
+
+	const BitmapSlot* loadTypeface(const Font& font, uint8_t typefaceIndex, const GlyphOptions& options = {});
+
+	const BitmapSlot* getBitmapSlot(AssetID id) const;
+
+	const BitmapSlot* getTypefaceSlot(const TypeFace& typeface) const
+	{
+		return getBitmapSlot(typeface.id());
+	}
+
+	void clearSlots()
+	{
+		memset(&bitmaps, 0, sizeof(bitmaps));
+		nextRamAddress = 0;
+	}
+
+	uint32_t getUsedRam() const
+	{
+		return nextRamAddress;
+	}
+
 	/* Device */
 
 	String getName() const override;
@@ -164,10 +204,15 @@ public:
 
 private:
 	friend class EveSurface;
+
 	void cmdWrite(EVE::HostCommand cmd, uint8_t param);
+	BitmapSlot* findBitmapSlot(AssetID id);
+	BitmapSlot* getFreeSlot();
 
 	Size nativeSize{};
 	Context context{};
+	BitmapSlot bitmaps[32]{};   ///< Loaded bitmaps
+	uint32_t nextRamAddress{0}; ///< Simple RAMG allocator
 	Orientation orientation{};
 	EVE::Fixed8 scale{1};
 };
