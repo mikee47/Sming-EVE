@@ -382,6 +382,7 @@ GlyphObject::Metrics RomTypeFace::getMetrics(uint16_t ch) const
 		.xOffset = 0,
 		.yOffset = int8_t(metrics.descent - metrics.height),
 		.advance = width,
+		.alpha = metrics.alpha,
 	};
 }
 
