@@ -210,6 +210,7 @@ enum BitmapFormat {
 	BMF_PALETTED4444 = 15,
 	BMF_PALETTED8 = 16,
 	BMF_L2 = 17,
+	BMF_ARGB8 = 0x20, ///< For CMD_SNAPSHOT2
 };
 
 /* DL_BITMAP_SIZE filter types */
