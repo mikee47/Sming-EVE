@@ -6,6 +6,7 @@
 #pragma once
 
 #include "EVE.h"
+#include "Types.h"
 #include <Graphics/Object.h>
 
 namespace Graphics::EVE
@@ -62,7 +63,7 @@ public:
 
 	const void* getDeviceData() const override
 	{
-		return &metrics;
+		return &slot;
 	}
 
 	GlyphBlock getBlock(unsigned index) const;
@@ -74,12 +75,12 @@ public:
 
 	uint8_t height() const override
 	{
-		return metrics.height;
+		return slot.height;
 	}
 
 	uint8_t descent() const override
 	{
-		return metrics.descent;
+		return mdescent;
 	}
 
 	GlyphObject::Metrics getMetrics(uint16_t ch) const override;
@@ -90,8 +91,12 @@ public:
 	}
 
 private:
-	FontMetrics metrics{};
-	uint8_t index;
+	BitmapSlot slot{};
+	uint8_t index:6;
+	uint8_t alpha: 2;
+	uint8_t firstchar{};
+	uint8_t numchars{};
+	uint8_t mdescent;
 };
 
 class RomFont : public Font

@@ -342,23 +342,9 @@ void EveSurface::renderText(const Rect& location, const TextObject& object)
 				options.style -= FontStyle::DotMatrix | FontStyle::HLine;
 			}
 
-			EveDisplay::BitmapSlot romslot;
-			const EveDisplay::BitmapSlot* slot;
-			auto romfont = static_cast<const EVE::FontMetrics*>(font->typeface.getDeviceData());
-			if(romfont) {
-				romslot = EveDisplay::BitmapSlot{
-					.address = romfont->bitmap,
-					.format = romfont->format(),
-					.stride = romfont->stride,
-					.width = romfont->width,
-					.height = romfont->height,
-				};
-				slot = &romslot;
-			} else {
-				slot = display.loadTypeface(font->typeface, options);
-				if(!slot) {
-					break;
-				}
+			auto slot = display.loadTypeface(font->typeface, options);
+			if(!slot) {
+				break;
 			}
 			dl.bitmap_handle(fontHandle);
 			dl.bitmap_source(slot->address);

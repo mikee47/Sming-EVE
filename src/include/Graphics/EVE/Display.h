@@ -86,18 +86,7 @@ public:
 		EVE::LineWidth lineWidth{16};
 	};
 
-	/*
-	* @brief Details for loaded bitmap instance
-	*/
-	struct BitmapSlot {
-		uint32_t address : 24; ///< Location of asset in RAMG
-		EVE::BitmapFormat format;
-		// EVE::Handle handle : 8;
-		AssetID id; ///< Associated asset, 0 is 'unassigned'
-		uint8_t stride;
-		uint8_t width;
-		uint8_t height;
-	};
+	using BitmapSlot = EVE::BitmapSlot;
 
 	using MemoryDevice::MemoryDevice;
 

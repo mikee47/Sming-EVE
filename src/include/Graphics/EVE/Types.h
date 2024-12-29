@@ -85,4 +85,16 @@ template <uint8_t precision> int operator/(int value, FixedTemplate<precision> d
 	return (value * div.scalar + div.value / 2) / div.value;
 }
 
+/*
+ * @brief Details for loaded bitmap instance
+ */
+struct BitmapSlot {
+	uint32_t address : 24; ///< Location of asset in ROM/RAMG
+	EVE::BitmapFormat format : 8;
+	AssetID id; ///< Associated asset, 0 is 'unassigned'
+	uint8_t stride;
+	uint8_t width;
+	uint8_t height;
+};
+
 } // namespace Graphics::EVE

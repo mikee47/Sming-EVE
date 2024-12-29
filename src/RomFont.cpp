@@ -361,28 +361,48 @@ bool getRomFont(uint8_t index, FontMetrics& metrics)
 
 RomTypeFace::RomTypeFace(uint8_t index) : TypeFace(), index(index)
 {
-	getRomFont(index, metrics);
+	FontMetrics metrics;
+	if(!getRomFont(index, metrics)) {
+		return;
+	}
+	slot = BitmapSlot{
+		.address = metrics.bitmap,
+		.format = metrics.format(),
+		.stride = metrics.stride,
+		.width = metrics.width,
+		.height = metrics.height,
+	};
+	firstchar = metrics.firstchar;
+	alpha = metrics.alpha;
+	numchars = metrics.numchars;
+	mdescent = metrics.descent;
 }
 
 GlyphBlock RomTypeFace::getBlock(unsigned index) const
 {
 	if(index == 0) {
-		return GlyphBlock{metrics.firstchar, metrics.numchars};
+		return GlyphBlock{firstchar, numchars};
 	}
 	return GlyphBlock{};
 }
 
 GlyphObject::Metrics RomTypeFace::getMetrics(uint16_t ch) const
 {
-	uint16_t charIndex = ch - metrics.firstchar;
-	uint8_t width = (charIndex < metrics.numchars) ? metrics.char_width[charIndex] : 0;
+	if(numchars == 0) {
+		return {};
+	}
+	uint16_t charIndex = ch - firstchar;
+	uint8_t width{0};
+	if(charIndex < numchars) {
+		width = FSTR::readValue(&romfonts[index - ROM_FONT_MIN].char_width[charIndex]);
+	}
 	return GlyphMetrics{
 		.width = width,
-		.height = metrics.height,
+		.height = slot.height,
 		.xOffset = 0,
-		.yOffset = int8_t(metrics.descent - metrics.height),
+		.yOffset = int8_t(mdescent - slot.height),
 		.advance = width,
-		.alpha = metrics.alpha,
+		.alpha = alpha,
 	};
 }
 

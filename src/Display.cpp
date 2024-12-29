@@ -234,7 +234,7 @@ Surface* EveDisplay::createSurface(size_t bufferSize)
 
 /* EveDisplay */
 
-EveDisplay::BitmapSlot* EveDisplay::findBitmapSlot(AssetID id)
+BitmapSlot* EveDisplay::findBitmapSlot(AssetID id)
 {
 	for(auto& slot : bitmaps) {
 		if(slot.id == id) {
@@ -245,7 +245,7 @@ EveDisplay::BitmapSlot* EveDisplay::findBitmapSlot(AssetID id)
 	return nullptr;
 }
 
-const EveDisplay::BitmapSlot* EveDisplay::getBitmapSlot(AssetID id) const
+const BitmapSlot* EveDisplay::getBitmapSlot(AssetID id) const
 {
 	auto slot = const_cast<EveDisplay*>(this)->findBitmapSlot(id);
 	if(!slot) {
@@ -254,7 +254,7 @@ const EveDisplay::BitmapSlot* EveDisplay::getBitmapSlot(AssetID id) const
 	return slot;
 }
 
-EveDisplay::BitmapSlot* EveDisplay::getFreeSlot()
+BitmapSlot* EveDisplay::getFreeSlot()
 {
 	auto slot = findBitmapSlot(0);
 	if(!slot) {
@@ -263,8 +263,14 @@ EveDisplay::BitmapSlot* EveDisplay::getFreeSlot()
 	return slot;
 }
 
-const EveDisplay::BitmapSlot* EveDisplay::loadTypeface(const TypeFace& typeface, const GlyphOptions& options)
+const BitmapSlot* EveDisplay::loadTypeface(const TypeFace& typeface, const GlyphOptions& options)
 {
+	auto romslot = static_cast<const BitmapSlot*>(typeface.getDeviceData());
+	if(romslot) {
+		// A ROM font - doesn't require loading
+		return romslot;
+	}
+
 	auto slot = findBitmapSlot(typeface.id());
 	if(slot) {
 		// Already loaded
@@ -274,21 +280,6 @@ const EveDisplay::BitmapSlot* EveDisplay::loadTypeface(const TypeFace& typeface,
 	slot = getFreeSlot();
 	if(slot == nullptr) {
 		return nullptr;
-	}
-
-	auto romfont = static_cast<const FontMetrics*>(typeface.getDeviceData());
-	if(romfont) {
-		// A ROM font - doesn't require loading
-		debug_i("[EVE] Loaded ROM font %u", typeface.id());
-		*slot = BitmapSlot{
-			.address = romfont->bitmap,
-			.format = romfont->format(),
-			.id = typeface.id(),
-			.stride = romfont->stride,
-			.width = romfont->width,
-			.height = romfont->height,
-		};
-		return slot;
 	}
 
 	/*
@@ -400,8 +391,7 @@ const EveDisplay::BitmapSlot* EveDisplay::loadTypeface(const TypeFace& typeface,
 	return slot;
 }
 
-const EveDisplay::BitmapSlot* EveDisplay::loadTypeface(const Font& font, uint8_t typefaceIndex,
-													   const GlyphOptions& options)
+const BitmapSlot* EveDisplay::loadTypeface(const Font& font, uint8_t typefaceIndex, const GlyphOptions& options)
 {
 	auto typeface = font.getFace(typefaceIndex);
 	if(!typeface) {
