@@ -2,11 +2,42 @@
 #include "include/Graphics/EVE/Surface.h"
 #include "include/Graphics/EVE/RomFont.h"
 #include <Clock.h>
+#include <Digital.h>
 #include <Platform/Timers.h>
+
+String toString(Graphics::EveDisplay::Event event)
+{
+	using Event = Graphics::EveDisplay::Event;
+	switch(event) {
+	case Event::swap:
+		return F("swap");
+	case Event::touch:
+		return F("touch");
+	case Event::tag:
+		return F("tag");
+	case Event::sound:
+		return F("sound");
+	case Event::playback:
+		return F("playback");
+	case Event::cmdempty:
+		return F("cmdempty");
+	case Event::cmdflag:
+		return F("cmdflag");
+	case Event::convcomplete:
+		return F("convcomplete");
+	}
+	return nullptr;
+}
 
 namespace Graphics
 {
 using namespace EVE;
+
+#define MAX_DISPLAYS 1
+EveDisplay* EveDisplay::displays[MAX_DISPLAYS];
+
+DEFINE_FSTR_ARRAY_LOCAL(TOUCH_TRANSFORM_VALUES, uint32_t, 0x000102ed, 0xfffffcc1, 0x0005e3d9, 0x00000357, 0x00010837,
+						0xfff32c3b)
 
 bool EveDisplay::begin(HSPI::PinSet pinSet, uint8_t chipSelect, uint32_t spiClockSpeed, const Config& config)
 {
@@ -67,6 +98,8 @@ bool EveDisplay::begin(HSPI::PinSet pinSet, uint8_t chipSelect, uint32_t spiCloc
 	/* Configure Touch */
 	write8(REG_TOUCH_MODE, EVE_TMODE_CONTINUOUS);
 	write8(REG_TOUCH_OVERSAMPLE, 15);
+	blockWrite(REG_TOUCH_TRANSFORM_A, TOUCH_TRANSFORM_VALUES);
+	write8(REG_CTOUCH_EXTENDED, 0);
 
 	/* disable Audio for now */
 	write8(REG_VOL_PB, 0);	// turn recorded audio volume down, reset-default is 0xff
@@ -110,6 +143,142 @@ bool EveDisplay::begin(HSPI::PinSet pinSet, uint8_t chipSelect, uint32_t spiCloc
 	nativeSize = Size{config.hsize, config.vsize};
 
 	return true;
+}
+
+bool EveDisplay::enableInterrupts(uint8_t irqPin, EventCallback callback)
+{
+	if(irqPin == PIN_NONE || interruptPin != PIN_NONE) {
+		return false;
+	}
+	displays[0] = this;
+	interruptPin = irqPin;
+	eventCallback = callback;
+
+	// Pre-configure request for reading
+	prepareRead(statusRequest, EVE::REG_INT_FLAGS);
+	statusRequest.setAsync(statusRequestComplete, this);
+
+	// Configure controller
+	auto gpiox = read16(REG_GPIOX);
+	write16(REG_GPIOX, gpiox | (1 << 9)); // IRQ is push/pull
+	read8(REG_INT_FLAGS);
+	write8(REG_INT_EN, 0x01);
+
+	// Attach interrupt service routine: enable pullup on input just in case
+	attachInterrupt(irqPin, interruptHandler, GPIO_PIN_INTR_NEGEDGE);
+	pinMode(irqPin, INPUT_PULLUP);
+	return true;
+}
+
+void EveDisplay::disableInterrupts()
+{
+	if(interruptPin == PIN_NONE) {
+		return;
+	}
+	detachInterrupt(interruptPin);
+	interruptPin = PIN_NONE;
+	write8(REG_INT_EN, 0);
+}
+
+EveDisplay::Events EveDisplay::setEventMask(Events events)
+{
+	if(events == eventMask) {
+		return eventMask;
+	}
+	auto oldMask = eventMask;
+	auto mask = uint8_t(events);
+	if(events & Events(Event::touch | Event::tag)) {
+		mask |= EVE_INT_CONVCOMPLETE;
+	}
+	write8(REG_INT_MASK, mask);
+	eventMask = events;
+	return oldMask;
+}
+
+// TODO: Create separate handler for max. supported displays (currently just one)
+void IRAM_ATTR EveDisplay::interruptHandler()
+{
+	auto self = displays[0];
+	if(self->readState == ReadState::idle) {
+		System.queueCallback(
+			[](void* param) {
+				auto self = static_cast<EveDisplay*>(param);
+				self->statusRequest.addr = EVE::REG_INT_FLAGS;
+				self->statusRequest.in.set8(0);
+				self->execute(self->statusRequest);
+			},
+			self);
+		self->readState = ReadState::status;
+	} else {
+		self->statusChangePending = true;
+	}
+}
+
+bool IRAM_ATTR EveDisplay::statusRequestComplete(HSPI::Request& req)
+{
+	/*
+	 * In interrupt context we can inspect the status value and queue further
+	 * requests by updating `req` and returning false.
+	 */
+	auto self = static_cast<EveDisplay*>(req.param);
+
+	Events events;
+	bool requestDone = true;
+
+	switch(self->readState) {
+	case ReadState::status: {
+		events = req.in.data8;
+
+		Events mask{Event::convcomplete | Event::tag | Event::touch};
+		if(events & mask) {
+			self->touchEvents = events & mask;
+			events -= mask;
+			req.addr = EVE::REG_CTOUCH_TOUCH1_XY;
+			req.in.set(&self->rawTouchData, sizeof(RawTouchData));
+			requestDone = false;
+			self->readState = ReadState::touch;
+		} else {
+			self->readState = ReadState::idle;
+		}
+		break;
+	}
+
+	case ReadState::touch:
+		req.addr = EVE::REG_TRACKER;
+		req.in.set(&self->rawTrackerData, sizeof(RawTrackerData));
+		self->readState = ReadState::tracker;
+		requestDone = false;
+		break;
+
+	case ReadState::tracker:
+		self->readState = ReadState::idle;
+		events |= self->touchEvents;
+		break;
+
+	case ReadState::idle:
+		// Unexpected
+		assert(false);
+		break;
+	}
+
+	if((events & self->eventMask) && self->eventCallback) {
+		System.queueCallback(
+			[](uint32_t param) {
+				auto self = displays[0];
+				self->eventCallback(Events(param));
+			},
+			uint8_t(events));
+	}
+
+	if(requestDone && self->statusChangePending) {
+		req.addr = EVE::REG_INT_FLAGS;
+		req.in.set8(0);
+		self->statusChangePending = false;
+		self->readState = ReadState::status;
+		requestDone = false;
+	}
+
+	return requestDone;
 }
 
 bool EveDisplay::setIoMode(HSPI::IoMode mode)
@@ -369,8 +538,8 @@ const BitmapSlot* EveDisplay::loadTypeface(const TypeFace& typeface, const Glyph
 
 	nextRamAddress = addr;
 
-	unsigned bmSize = addr - loadAddress;
-	debug_i("Loaded face %u @ 0x%06x, %u bytes, bitsPerPixel %u", typeface.id(), loadAddress, bmSize, bitsPerPixel);
+	debug_i("Loaded face %u @ 0x%06x, %u bytes, bitsPerPixel %u", typeface.id(), loadAddress, addr - loadAddress,
+			bitsPerPixel);
 
 	const EVE::BitmapFormat formats[]{
 		EVE::BMF_L1,

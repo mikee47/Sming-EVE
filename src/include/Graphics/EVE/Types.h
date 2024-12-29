@@ -97,4 +97,68 @@ struct BitmapSlot {
 	uint8_t height;
 };
 
+/**
+ * @brief Processed multi-touch values
+ */
+struct TouchValues {
+	uint8_t tag[5];
+	Point pt[5];
+};
+
+struct RawTouchData {
+	struct alignas(4) TouchXY {
+		int16_t y;
+		int16_t x;
+	};
+	TouchXY touch1_xy;
+	int16_t touch4_y;
+	TouchXY touch_xy;
+	TouchXY touch_tag_xy;
+	uint8_t touch_tag;
+	TouchXY touch_tag1_xy;
+	uint8_t touch_tag1;
+	TouchXY touch_tag2_xy;
+	uint8_t touch_tag2;
+	TouchXY touch_tag3_xy;
+	uint8_t touch_tag3;
+	TouchXY touch_tag4_xy;
+	uint8_t touch_tag4;
+	uint32_t transform[6];
+	uint32_t touch_config;
+	int16_t touch4_x;
+	uint32_t padding8[7];
+	TouchXY touch2_xy;
+	TouchXY touch3_xy;
+
+	TouchValues getValues() const
+	{
+		return {{
+					touch_tag,
+					touch_tag1,
+					touch_tag2,
+					touch_tag3,
+					touch_tag4,
+				},
+				{
+					{touch_xy.x, touch_xy.y},
+					{touch_tag1_xy.x, touch_tag1_xy.y},
+					{touch_tag2_xy.x, touch_tag2_xy.y},
+					{touch_tag3_xy.x, touch_tag3_xy.y},
+					{touch_tag4_xy.x, touch_tag4_xy.y},
+				}};
+	}
+};
+static_assert(sizeof(RawTouchData) == 30 * 4);
+
+struct RawTrackerData {
+	static constexpr unsigned size{5};
+	struct alignas(uint32_t) Data {
+		uint8_t tag;
+		uint8_t reserved;
+		uint16_t value;
+	};
+	Data data[size];
+};
+static_assert(sizeof(RawTrackerData) == 4 * 5);
+
 } // namespace Graphics::EVE

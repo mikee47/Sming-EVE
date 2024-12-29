@@ -86,6 +86,24 @@ public:
 		EVE::LineWidth lineWidth{16};
 	};
 
+	/**
+	 * @brief These values are passed to the event callback
+	 * They are also used to select which events are to be notified.
+	 */
+	enum class Event {
+		swap,	 ///< Display update complete
+		touch,	///< Touch data updated, call `getTouchValues()`
+		tag,	  ///< Tag data updated, call `getTouchValues()`
+		sound,	///< Sound effect ended
+		playback, ///< Audio playback ended
+		cmdempty, ///< Command FIFO empty
+		cmdflag,  ///< Command FIFO flag
+		convcomplete,
+	};
+	using Events = BitSet<uint8_t, Event, 7>;
+
+	using EventCallback = Delegate<void(Events events)>;
+
 	using BitmapSlot = EVE::BitmapSlot;
 
 	using MemoryDevice::MemoryDevice;
@@ -104,6 +122,35 @@ public:
 	bool begin(HSPI::PinSet pinSet, uint8_t chipSelect, uint32_t spiClockSpeed, const Config& config);
 
 	bool setIoMode(HSPI::IoMode mode) override;
+
+	bool enableInterrupts(uint8_t irqPin, EventCallback callback);
+	void disableInterrupts();
+
+	/**
+	 * @brief Set the event notification mask
+	 * @param events The new mask
+	 * @retval Events Previous mask
+	 */
+	Events setEventMask(Events events);
+
+	/**
+	 * @brief Get the current set of event notifications
+	 * @retval Events Current event mask
+	 */
+	Events getEventMask()
+	{
+		return eventMask;
+	}
+
+	const EVE::RawTouchData& getTouchData() const
+	{
+		return rawTouchData;
+	}
+
+	const EVE::RawTrackerData& getTrackerData() const
+	{
+		return rawTrackerData;
+	}
 
 	void prepareWrite(HSPI::Request& req, uint32_t address) override
 	{
@@ -194,10 +241,33 @@ public:
 private:
 	friend class EveSurface;
 
+	enum class ReadState {
+		idle,
+		status,  ///< Reading status flags
+		touch,   ///< Reading touch information
+		tracker, ///< Reading tracker information
+	};
+
+	static void interruptHandler();
+	static bool statusRequestComplete(HSPI::Request& req);
+
 	void cmdWrite(EVE::HostCommand cmd, uint8_t param);
 	BitmapSlot* findBitmapSlot(AssetID id);
 	BitmapSlot* getFreeSlot();
 
+	/* Interrupt processing */
+	static EveDisplay* displays[];
+	HSPI::Request statusRequest;
+	volatile ReadState readState{};
+	volatile bool statusChangePending{false}; ///< Set if interrupt received whilst busy
+	Events touchEvents;						  ///< Don't notify touch events until data has been read
+	uint8_t interruptPin{PIN_NONE};
+	EVE::RawTouchData rawTouchData;
+	EVE::RawTrackerData rawTrackerData;
+	EventCallback eventCallback;
+	Events eventMask{0xff};
+
+	/* General */
 	Size nativeSize{};
 	Context context{};
 	BitmapSlot bitmaps[32]{};   ///< Loaded bitmaps
@@ -207,3 +277,5 @@ private:
 };
 
 } // namespace Graphics
+
+String toString(Graphics::EveDisplay::Event event);
