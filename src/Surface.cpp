@@ -1,5 +1,6 @@
 #include "include/Graphics/EVE/Surface.h"
 #include "include/Graphics/EVE/RomFont.h"
+#include <Graphics/Renderer.h>
 #include <Platform/System.h>
 
 namespace Graphics
@@ -96,6 +97,7 @@ int EveSurface::readDataBuffer(ReadBuffer& buffer, ReadStatus* status, ReadCallb
 bool EveSurface::render(const Object& object, const Rect& location, std::unique_ptr<Renderer>& renderer)
 {
 	Color color{Color::White};
+	Location loc{location, location.size()};
 
 	switch(object.kind()) {
 	case Object::Kind::Custom:
@@ -183,20 +185,11 @@ bool EveSurface::render(const Object& object, const Rect& location, std::unique_
 		return true;
 	}
 
-	case Object::Kind::Ellipse:
-		break;
-
-	case Object::Kind::FilledEllipse:
-		break;
-
-	case Object::Kind::Arc:
-		break;
-
-	case Object::Kind::FilledArc:
-		break;
-
-	case Object::Kind::Drawing:
-		break;
+		DEFAULT_RENDER(Ellipse)
+		DEFAULT_RENDER(FilledEllipse)
+		DEFAULT_RENDER(Arc)
+		DEFAULT_RENDER(FilledArc)
+		DEFAULT_RENDER(Drawing)
 
 	case Object::Kind::Image:
 		break;
@@ -210,11 +203,25 @@ bool EveSurface::render(const Object& object, const Rect& location, std::unique_
 		return true;
 	}
 
-	case Object::Kind::Scene:
-		break;
+		DEFAULT_RENDER(Scene)
 
-	case Object::Kind::Reference:
-		break;
+	case Object::Kind::Reference: {
+		auto& ref = static_cast<const ReferenceObject&>(object);
+
+		ref.adjustLocation(loc);
+
+		if(ref.blend == nullptr) {
+			return render(ref.object, loc.dest);
+			// return ref.object.createRenderer(loc);
+		}
+
+		if(ref.object.kind() == Object::Kind::Image) {
+			auto& image = static_cast<const ImageObject&>(ref.object);
+			return new ImageCopyRenderer(loc, image, ref.blend);
+		}
+
+		return new BlendRenderer(loc, ref.object, ref.blend);
+	}
 
 	case Object::Kind::Surface:
 		break;
@@ -226,7 +233,7 @@ bool EveSurface::render(const Object& object, const Rect& location, std::unique_
 		break;
 	}
 
-	return Surface::render(object, location, renderer);
+	return true;
 }
 
 void EveSurface::reset()
