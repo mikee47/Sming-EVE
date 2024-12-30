@@ -836,7 +836,14 @@ When the coprocessor engine executes this command, it triggers interrupt, which 
         Param('n', Int32),
     ]),
 	CpCmd(0x2F, 'SCREENSAVER', ''),
-	CpCmd(0x30, 'SKETCH', ''),
+	CpCmd(0x30, 'SKETCH', 'Continuous sketch update', [
+        Param('x', Int16),
+        Param('y', Int16),
+        Param('w', UInt16),
+        Param('h', UInt16),
+        Param('ptr', UInt32),
+        Param('format', Type('BitmapFormat', 5)),
+    ]),
 	CpCmd(0x31, 'LOGO', ''),
 	CpCmd(0x32, 'COLDSTART', 'Reset coprocessor to default state'),
 	CpCmd(0x33, 'GETMATRIX', 'Get current matrix', [

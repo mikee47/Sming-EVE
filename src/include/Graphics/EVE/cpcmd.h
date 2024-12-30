@@ -570,13 +570,19 @@ void setscratch(Handle handle)
     write(&inst, sizeof(inst));
 }
 
-void sketch()
+void sketch(int16_t x, int16_t y, uint16_t w, uint16_t h, uint32_t ptr, BitmapFormat format)
 {
     struct Inst {
         uint32_t code;
+        int16_t x;
+        int16_t y;
+        uint16_t w;
+        uint16_t h;
+        uint32_t ptr;
+        uint16_t format;
     };
     static_assert(sizeof(Inst) % 4 == 0, "Inst not aligned");
-    Inst inst{0xffffff30};
+    Inst inst{0xffffff30, x, y, w, h, ptr, uint16_t(format)};
     write(&inst, sizeof(inst));
 }
 
