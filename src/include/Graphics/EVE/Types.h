@@ -66,6 +66,11 @@ template <uint8_t precision> struct FixedTemplate {
 		return value;
 	}
 
+	explicit operator double() const
+	{
+		return double(value) / scalar;
+	}
+
 	int operator*(int num) const
 	{
 		return (num * value + scalar / 2) / scalar;
