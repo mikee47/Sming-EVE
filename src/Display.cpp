@@ -483,19 +483,37 @@ const BitmapSlot* EveDisplay::loadTypeface(const TypeFace& typeface, const Glyph
 	const unsigned bufSize = stride * height;
 	debug_i("bufSize %u, yadv %u, stride %u, size (%u, %u)", bufSize, typeface.height(), stride, width, height);
 
+	const EVE::BitmapFormat formats[]{
+		EVE::BMF_L1,
+		EVE::BMF_L2,
+		EVE::BMF_L4,
+		EVE::BMF_L8,
+	};
+
+	RawFontMetrics fontMetrics{
+		.format = formats[alpha],
+		.stride = stride,
+		.width = width,
+		.height = height,
+		.bitmap = loadAddress,
+	};
+
 	auto buffer = std::make_unique<uint8_t[]>(bufSize);
 	auto glyphDataSize = (maxPixels + pixelsPerByte - 1) / pixelsPerByte;
 	auto glyphData = std::make_unique<uint8_t[]>(glyphDataSize);
 	auto addr = loadAddress;
-	for(unsigned blockIndex = 0;; ++blockIndex) {
-		GlyphBlock block = typeface.getBlock(blockIndex);
+	uint8_t cell{0};
+	unsigned blockIndex{0};
+	while(cell < 128) {
+		GlyphBlock block = typeface.getBlock(blockIndex++);
 		if(!block.length) {
 			break;
 		}
 		auto ch = block.codePoint;
-		for(; block.length--; ++ch, addr += bufSize) {
+		for(; cell < 128 && block.length--; ++cell, ++ch, addr += bufSize) {
 			auto glyph = typeface.getGlyph(ch, options);
 			auto& metrics = glyph->getMetrics();
+			fontMetrics.char_width[cell] = metrics.advance;
 			memset(buffer.get(), 0, bufSize);
 			glyph->readRaw(glyphData.get(), glyphDataSize);
 			uint8_t* src = glyphData.get();
@@ -536,25 +554,22 @@ const BitmapSlot* EveDisplay::loadTypeface(const TypeFace& typeface, const Glyph
 		}
 	}
 
-	nextRamAddress = addr;
-
 	debug_i("Loaded face %u @ 0x%06x, %u bytes, bitsPerPixel %u", typeface.id(), loadAddress, addr - loadAddress,
 			bitsPerPixel);
 
-	const EVE::BitmapFormat formats[]{
-		EVE::BMF_L1,
-		EVE::BMF_L2,
-		EVE::BMF_L4,
-		EVE::BMF_L8,
-	};
+	auto metricsAddress = ALIGNUP4(addr);
+	write(metricsAddress, &fontMetrics, sizeof(fontMetrics));
+
+	nextRamAddress = metricsAddress + sizeof(fontMetrics);
 
 	*slot = BitmapSlot{
-		.address = loadAddress,
-		.format = formats[alpha],
-		.id = typeface.id(),
+		.address = fontMetrics.bitmap,
+		.format = fontMetrics.format,
+		.metrics = metricsAddress,
 		.stride = stride,
 		.width = width,
 		.height = height,
+		.id = typeface.id(),
 	};
 
 	return slot;

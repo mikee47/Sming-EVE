@@ -96,10 +96,11 @@ template <uint8_t precision> int operator/(int value, FixedTemplate<precision> d
 struct BitmapSlot {
 	uint32_t address : 24; ///< Location of asset in ROM/RAMG
 	EVE::BitmapFormat format : 8;
-	AssetID id; ///< Associated asset, 0 is 'unassigned'
+	uint32_t metrics : 24; ///< Location of loaded font metrics for soft fonts
 	uint8_t stride;
 	uint8_t width;
 	uint8_t height;
+	AssetID id; ///< Associated asset, 0 is 'unassigned'
 };
 
 /**
