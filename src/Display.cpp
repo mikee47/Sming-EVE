@@ -460,22 +460,26 @@ const BitmapSlot* EveDisplay::loadTypeface(const TypeFace& typeface, const Glyph
 	uint8_t alpha{};
 	uint8_t width{0};
 	uint8_t height{0};
-	unsigned maxPixels{0};
-	for(unsigned blockIndex = 0;; ++blockIndex) {
-		GlyphBlock block = typeface.getBlock(blockIndex);
-		if(!block.length) {
+	unsigned blockIndex{0};
+	uint8_t cell{1};
+	while(cell < 128) {
+		GlyphBlock block = typeface.getBlock(blockIndex++);
+		if(block.length == 0) {
 			break;
 		}
 		uint16_t ch = block.codePoint;
-		while(block.length--) {
+		while(block.length-- && cell < 128) {
+			++cell;
 			auto metrics = typeface.getMetrics(ch++);
 			assert(typeface.descent() - metrics.yOffset - metrics.height >= 0);
 			alpha = metrics.alpha;
 			uint8_t xoff = std::min(int8_t(0), metrics.xOffset);
 			width = std::max(width, uint8_t(xoff + metrics.width));
 			height = std::max(height, metrics.height);
-			maxPixels = std::max(maxPixels, unsigned(metrics.width) * metrics.height);
 		}
+	}
+	if(options.style[FontStyle::Block]) {
+		height = typeface.height();
 	}
 
 	const uint8_t bitsPerPixel = 1 << alpha;
@@ -501,12 +505,10 @@ const BitmapSlot* EveDisplay::loadTypeface(const TypeFace& typeface, const Glyph
 	};
 
 	auto buffer = std::make_unique<uint8_t[]>(bufSize);
-	auto glyphDataSize = (maxPixels + pixelsPerByte - 1) / pixelsPerByte;
+	auto glyphDataSize = (width * height + pixelsPerByte - 1) / pixelsPerByte;
 	auto glyphData = std::make_unique<uint8_t[]>(glyphDataSize);
 	auto addr = loadAddress;
-	uint8_t cell{0};
-	unsigned blockIndex{0};
-	while(cell < 128) {
+	for(blockIndex = 0, cell = 1; cell < 128;) {
 		GlyphBlock block = typeface.getBlock(blockIndex++);
 		if(!block.length) {
 			break;
@@ -520,9 +522,24 @@ const BitmapSlot* EveDisplay::loadTypeface(const TypeFace& typeface, const Glyph
 			glyph->readRaw(glyphData.get(), glyphDataSize);
 			uint8_t* src = glyphData.get();
 			auto dstrow = buffer.get();
+			if(options.style[FontStyle::Block]) {
+				/* Negative x offsets can be found in some 'j' characters, for example,
+				 * so the tail curls underneath the preceding letter slightly.
+				 * In block mode the glyph must be drawn at offset 0 so we must increase
+				 * the character spacing accordingly.
+				 */
+				if(metrics.xOffset < 0) {
+					fontMetrics.char_width[cell] -= metrics.xOffset;
+				}
+				auto yoff = (height - typeface.descent() + metrics.yOffset);
+				dstrow += yoff * stride;
+			}
 			if(bitsPerPixel == 8) {
+				if(options.style[FontStyle::Block]) {
+					dstrow += std::min(int8_t(0), metrics.xOffset);
+				}
 				for(unsigned y = 0; y < metrics.height; ++y, src += metrics.width, dstrow += stride) {
-					memcpy(dstrow + std::min(int8_t(0), metrics.xOffset), src, metrics.width);
+					memcpy(dstrow, src, metrics.width);
 				}
 			} else {
 				uint8_t mask = (1 << bitsPerPixel) - 1;
@@ -532,6 +549,10 @@ const BitmapSlot* EveDisplay::loadTypeface(const TypeFace& typeface, const Glyph
 					auto dst = dstrow;
 					uint8_t dstbyte{0};
 					uint8_t dstshift = 8;
+					if(options.style[FontStyle::Block] && metrics.xOffset > 0) {
+						dst += metrics.xOffset / pixelsPerByte;
+						dstshift = 8 - ((metrics.xOffset * bitsPerPixel) % 8);
+					}
 					for(unsigned x = 0; x < metrics.width; ++x) {
 						if(srcshift == 0) {
 							srcbyte = *src++;

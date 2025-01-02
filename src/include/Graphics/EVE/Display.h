@@ -200,6 +200,7 @@ public:
 	/**
 	 * @brief Load a typeface into RAMG so it can be used in a display list
 	 * @param typeface
+	 * @param options
 	 * @retval BitmapSlot* Pointer to allocated bitmap slot, or nullptr on failure
 	 */
 	const BitmapSlot* loadTypeface(const TypeFace& typeface, const GlyphOptions& options = {});
