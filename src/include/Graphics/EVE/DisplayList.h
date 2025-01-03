@@ -81,6 +81,18 @@ public:
 		vertex2f(pt.x, pt.y);
 	}
 
+	void bitmapLayout(BitmapFormat format, uint16_t linestride, uint16_t height)
+	{
+		bitmap_layout_h(linestride >> 10, height >> 9);
+		bitmap_layout(format, linestride, height);
+	}
+
+	void bitmapSize(BitmapFilter filter, BitmapWrap wrapx, BitmapWrap wrapy, uint16_t width, uint16_t height)
+	{
+		bitmap_size_h(width >> 9, height >> 9);
+		bitmap_size(filter, wrapx, wrapy, width, height);
+	}
+
 protected:
 	std::unique_ptr<uint8_t[]> buffer;
 	unsigned bufferSize;

@@ -190,15 +190,18 @@ bool EveSurface::render(const Object& object, const Rect& location, std::unique_
 		DEFAULT_RENDER(FilledArc)
 		DEFAULT_RENDER(Drawing)
 
-	case Object::Kind::Image:
-		break;
+	case Object::Kind::Image: {
+		auto& obj = static_cast<const ImageObject&>(object);
+		drawImage(location, obj);
+		return true;
+	}
 
 	case Object::Kind::Glyph:
 		break;
 
 	case Object::Kind::Text: {
 		auto& obj = static_cast<const TextObject&>(object);
-		renderText(location, obj);
+		drawText(location, obj);
 		return true;
 	}
 
@@ -243,10 +246,6 @@ void EveSurface::reset()
 
 bool EveSurface::present(PresentCallback callback, void* param)
 {
-	/* TODO
-    Should transfer any buffered RAMG data, followed by command buffer.
-    When transfer has completed we should release RAMG buffer.
-    */
 	dl.display();
 	debug_i("%s(%u)", __FUNCTION__, dl.length());
 
@@ -323,12 +322,39 @@ void EveSurface::vertex(Point pt, EVE::Handle handle, EVE::Cell cell)
 	if(unsigned(pt.x) <= 511 && unsigned(pt.y) <= 511) {
 		dl.vertex2ii(pt.x, pt.y, handle, cell);
 	} else {
+		setHandle(handle);
 		dl.cell(cell);
 		dl.vertex2f(pt);
 	}
 }
 
-void EveSurface::renderText(const Rect& location, const TextObject& object)
+void EveSurface::drawImage(const Rect& location, const ImageObject& object)
+{
+	auto slot = display.loadImage(object);
+	if(!slot) {
+		// TODO: Draw rect with large cross to indicate missing image
+		return;
+	}
+	debug_i("SLOT addr %p, format %u, stride %u, width %u, height %u", slot->address, slot->format, slot->stride,
+			slot->width, slot->height);
+	auto scale = display.getScale();
+	const Handle handle{1};
+	dl.save_context();
+	setHandle(handle);
+	dl.bitmap_source(slot->address);
+	dl.bitmapLayout(slot->format, slot->stride, slot->height);
+	dl.bitmapSize(EVE::BitmapFilter::NEAREST, EVE::BitmapWrap::BORDER, EVE::BitmapWrap::BORDER, scale * slot->width,
+				  scale * slot->height);
+	dl.bitmap_transform_a(1.0);
+	dl.bitmap_transform_e(1.0);
+	begin(EVE::GP_BITMAPS);
+	dl.cell(0);
+	dl.color_rgb(255, 255, 255);
+	vertex(location.topLeft(), handle, 0);
+	dl.restore_context();
+}
+
+void EveSurface::drawText(const Rect& location, const TextObject& object)
 {
 	Point pos = location.topLeft() + object.bounds.topLeft();
 	auto scale = display.getScale();
@@ -360,7 +386,7 @@ void EveSurface::renderText(const Rect& location, const TextObject& object)
 			if(!slot) {
 				break;
 			}
-			dl.bitmap_handle(fontHandle);
+			setHandle(fontHandle);
 			dl.bitmap_source(slot->address);
 			dl.bitmap_layout(slot->format, slot->stride, slot->height);
 			auto fontScaleX = scale * options.scale.scaleX();

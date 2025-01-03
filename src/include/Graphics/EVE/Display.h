@@ -214,6 +214,8 @@ public:
 		return getBitmapSlot(typeface.id());
 	}
 
+	const BitmapSlot* loadImage(const ImageObject& image);
+
 	void clearSlots()
 	{
 		memset(&bitmaps, 0, sizeof(bitmaps));

@@ -398,7 +398,7 @@ GlyphObject::Metrics RomTypeFace::getMetrics(uint16_t ch) const
 	}
 	return GlyphMetrics{
 		.width = width,
-		.height = slot.height,
+		.height = uint8_t(slot.height),
 		.xOffset = 0,
 		.yOffset = int8_t(mdescent - slot.height),
 		.advance = width,

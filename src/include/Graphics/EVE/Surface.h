@@ -82,7 +82,8 @@ private:
 		}
 	}
 
-	void renderText(const Rect& location, const TextObject& object);
+	void drawImage(const Rect& location, const ImageObject& object);
+	void drawText(const Rect& location, const TextObject& object);
 
 	EveDisplay& display;
 	EVE::DisplayList dl;

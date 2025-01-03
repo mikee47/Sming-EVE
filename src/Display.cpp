@@ -607,4 +607,86 @@ const BitmapSlot* EveDisplay::loadTypeface(const Font& font, uint8_t typefaceInd
 	return loadTypeface(*typeface, options);
 }
 
+const BitmapSlot* EveDisplay::loadImage(const ImageObject& image)
+{
+	// TODO: Need something to associate bitmap with slot
+	AssetID imageId = 0xffff;
+
+	// const uint32_t cmdlist[]{
+	// 	MAKE_COPROC_CMD_WORD(CMD_LOADIMAGE),
+	// 	EVE_RAM_G + 0x40000,
+	// 	EVE_OPT_NODL,
+	// };
+	// tft.write(REG_CMDB_WRITE, cmdlist, sizeof(cmdlist));
+
+	// const size_t chunkSize = 4000;
+	// auto buffer = new uint8_t[chunkSize];
+	// int len;
+	// while((len = file.read(buffer, chunkSize)) > 0) {
+	// 	debug_i("loadImage(%d)", len);
+	// 	tft.write(REG_CMDB_WRITE, buffer, ALIGNUP4(len));
+	// }
+	// delete[] buffer;
+
+	auto slot = findBitmapSlot(imageId);
+	if(slot) {
+		// Already loaded
+		return slot;
+	}
+
+	slot = getFreeSlot();
+	if(slot == nullptr) {
+		return nullptr;
+	}
+
+	auto loadAddress = nextRamAddress;
+
+	auto width = image.width();
+	auto height = image.height();
+	auto pixelFormat = image.getPixelFormat();
+	const uint8_t bytesPerPixel = getBytesPerPixel(pixelFormat);
+	const uint16_t stride = width * bytesPerPixel;
+
+	const unsigned bufSize = stride;
+	debug_i("bufSize %u, pixelFormat 0x%02x, stride %u, size (%u, %u)", bufSize, pixelFormat, stride, width, height);
+
+	BitmapFormat format;
+	switch(pixelFormat) {
+	case PixelFormat::RGB565:
+		format = BMF_RGB565;
+		break;
+	default:
+		debug_e("Unsupported pixel format 0x%02x", pixelFormat);
+		return nullptr;
+	}
+
+	auto buffer = std::make_unique<uint8_t[]>(bufSize);
+	auto addr = loadAddress;
+
+	Location loc{};
+	for(unsigned row = 0; row < height; ++row, addr += stride) {
+		loc.pos.y = row;
+		image.readPixels(loc, pixelFormat, buffer.get(), width);
+		for(unsigned i = 0; i < width; ++i) {
+			std::swap(buffer[i * 2], buffer[i * 2 + 1]);
+		}
+		write(addr, buffer.get(), stride);
+	}
+
+	debug_i("Loaded image @ 0x%06x, %u bytes", loadAddress, addr - loadAddress);
+
+	nextRamAddress = addr;
+
+	*slot = BitmapSlot{
+		.address = loadAddress,
+		.format = format,
+		.stride = stride,
+		.width = width,
+		.height = height,
+		.id = imageId,
+	};
+
+	return slot;
+}
+
 } // namespace Graphics
