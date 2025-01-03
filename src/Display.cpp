@@ -469,8 +469,10 @@ const BitmapSlot* EveDisplay::loadTypeface(const TypeFace& typeface, const Glyph
 		uint16_t ch = block.codePoint;
 		while(block.length--) {
 			auto metrics = typeface.getMetrics(ch++);
+			assert(typeface.descent() - metrics.yOffset - metrics.height >= 0);
 			alpha = metrics.alpha;
-			width = std::max(width, metrics.width);
+			uint8_t xoff = std::min(int8_t(0), metrics.xOffset);
+			width = std::max(width, uint8_t(xoff + metrics.width));
 			height = std::max(height, metrics.height);
 			maxPixels = std::max(maxPixels, unsigned(metrics.width) * metrics.height);
 		}
@@ -520,7 +522,7 @@ const BitmapSlot* EveDisplay::loadTypeface(const TypeFace& typeface, const Glyph
 			auto dstrow = buffer.get();
 			if(bitsPerPixel == 8) {
 				for(unsigned y = 0; y < metrics.height; ++y, src += metrics.width, dstrow += stride) {
-					memcpy(dstrow, src, metrics.width);
+					memcpy(dstrow + std::min(int8_t(0), metrics.xOffset), src, metrics.width);
 				}
 			} else {
 				uint8_t mask = (1 << bitsPerPixel) - 1;
