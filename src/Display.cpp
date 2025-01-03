@@ -653,7 +653,7 @@ const BitmapSlot* EveDisplay::loadImage(const ImageObject& image)
 	BitmapFormat format;
 	switch(pixelFormat) {
 	case PixelFormat::RGB565:
-		format = BMF_RGB565;
+		format = BMF_ARGB1555; // BMF_RGB565;
 		break;
 	default:
 		debug_e("Unsupported pixel format 0x%02x", pixelFormat);
@@ -668,7 +668,12 @@ const BitmapSlot* EveDisplay::loadImage(const ImageObject& image)
 		loc.pos.y = row;
 		image.readPixels(loc, pixelFormat, buffer.get(), width);
 		for(unsigned i = 0; i < width; ++i) {
-			std::swap(buffer[i * 2], buffer[i * 2 + 1]);
+			PixelBuffer src{.u8 = {buffer[i * 2 + 1], buffer[i * 2]}};
+			PixelBuffer dst{.argb1555 = {.b = src.rgb565.b, .g = src.rgb565.g >> 1, .r = src.rgb565.r}};
+			dst.argb1555.a = (src.packed.value == 0xffff) ? 0 : 1;
+			buffer[i * 2] = dst.u8[0];
+			buffer[i * 2 + 1] = dst.u8[1];
+			// std::swap(buffer[i * 2], buffer[i * 2 + 1]);
 		}
 		write(addr, buffer.get(), stride);
 	}
