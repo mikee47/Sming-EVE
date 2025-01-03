@@ -61,7 +61,8 @@ private:
 		dl.bitmap_handle(handle);
 	}
 
-	void vertex(Point pt, EVE::Handle handle = 0, EVE::Cell cell = 0);
+	void vertex(Point pt);
+	void vertex(Point pt, EVE::Handle handle, EVE::Cell cell);
 
 	void begin(EVE::GraphicsPrimitive prim)
 	{

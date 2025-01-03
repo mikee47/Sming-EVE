@@ -105,7 +105,6 @@ bool EveSurface::render(const Object& object, const Rect& location, std::unique_
 
 	case Object::Kind::Point: {
 		auto& obj = static_cast<const PointObject&>(object);
-		Point pt = obj.point + location.topLeft();
 		if(obj.brush.isSolid()) {
 			color = obj.brush.getColor();
 		} else {
@@ -116,7 +115,7 @@ bool EveSurface::render(const Object& object, const Rect& location, std::unique_
 		setColor(color);
 		setPointSize(16);
 		begin(GP_POINTS);
-		vertex(pt);
+		vertex(location.topLeft() + obj.point);
 		return true;
 	}
 
@@ -146,8 +145,8 @@ bool EveSurface::render(const Object& object, const Rect& location, std::unique_
 		// return fillSmallRect(obj.brush, location, obj.rect);
 		setColor(obj.brush.getColor());
 		begin(EVE::GP_RECTS);
-		vertex(obj.rect.topLeft());
-		vertex(obj.rect.bottomRight());
+		vertex(location.topLeft() + obj.rect.topLeft());
+		vertex(location.topLeft() + obj.rect.bottomRight());
 		return true;
 	}
 
@@ -156,8 +155,8 @@ bool EveSurface::render(const Object& object, const Rect& location, std::unique_
 		setColor(obj.pen.getColor());
 		setLineWidth(16 * obj.pen.width);
 		begin(EVE::GP_LINES);
-		vertex(obj.pt1);
-		vertex(obj.pt2);
+		vertex(location.topLeft() + obj.pt1);
+		vertex(location.topLeft() + obj.pt2);
 		return true;
 	}
 
@@ -167,7 +166,7 @@ bool EveSurface::render(const Object& object, const Rect& location, std::unique_
 		setLineWidth(16 * obj.pen.width);
 		begin(obj.connected ? EVE::GP_LINE_STRIP : EVE::GP_LINES);
 		for(unsigned i = 0; i < obj.numPoints; ++i) {
-			vertex(obj[i]);
+			vertex(location.topLeft() + obj[i]);
 		}
 		end();
 		return true;
@@ -181,7 +180,7 @@ bool EveSurface::render(const Object& object, const Rect& location, std::unique_
 		setColor(obj.brush.getColor());
 		begin(EVE::GP_POINTS);
 		setPointSize(16 * obj.radius);
-		vertex(obj.centre);
+		vertex(location.topLeft() + obj.centre);
 		return true;
 	}
 
@@ -306,6 +305,14 @@ void EveSurface::setLineWidth(LineWidth width)
 	}
 	context.lineWidth = width;
 	dl.line_width(width * display.getScale());
+}
+
+void EveSurface::vertex(Point pt)
+{
+	auto scale = display.getScale();
+	pt.x = pt.x * scale;
+	pt.y = pt.y * scale;
+	dl.vertex2f(pt);
 }
 
 void EveSurface::vertex(Point pt, EVE::Handle handle, EVE::Cell cell)
