@@ -403,10 +403,10 @@ Surface* EveDisplay::createSurface(size_t bufferSize)
 
 /* EveDisplay */
 
-BitmapSlot* EveDisplay::findBitmapSlot(AssetID id)
+BitmapSlot* EveDisplay::findBitmapSlot(const void* object)
 {
 	for(auto& slot : bitmaps) {
-		if(slot.id == id) {
+		if(slot.object == object) {
 			return &slot;
 		}
 	}
@@ -414,18 +414,18 @@ BitmapSlot* EveDisplay::findBitmapSlot(AssetID id)
 	return nullptr;
 }
 
-const BitmapSlot* EveDisplay::getBitmapSlot(AssetID id) const
+const BitmapSlot* EveDisplay::getBitmapSlot(const void* object) const
 {
-	auto slot = const_cast<EveDisplay*>(this)->findBitmapSlot(id);
+	auto slot = const_cast<EveDisplay*>(this)->findBitmapSlot(object);
 	if(!slot) {
-		debug_w("[EVE] Slot not found for id %u", id);
+		debug_w("[EVE] Slot not found for id %p", object);
 	}
 	return slot;
 }
 
 BitmapSlot* EveDisplay::getFreeSlot()
 {
-	auto slot = findBitmapSlot(0);
+	auto slot = findBitmapSlot(nullptr);
 	if(!slot) {
 		debug_w("[EVE] No free slots");
 	}
@@ -440,7 +440,7 @@ const BitmapSlot* EveDisplay::loadTypeface(const TypeFace& typeface, const Glyph
 		return romslot;
 	}
 
-	auto slot = findBitmapSlot(typeface.id());
+	auto slot = findBitmapSlot(&typeface);
 	if(slot) {
 		// Already loaded
 		return slot;
@@ -592,7 +592,7 @@ const BitmapSlot* EveDisplay::loadTypeface(const TypeFace& typeface, const Glyph
 		.stride = stride,
 		.width = width,
 		.height = height,
-		.id = typeface.id(),
+		.object = &typeface,
 	};
 
 	return slot;
@@ -609,9 +609,6 @@ const BitmapSlot* EveDisplay::loadTypeface(const Font& font, uint8_t typefaceInd
 
 const BitmapSlot* EveDisplay::loadImage(const ImageObject& image)
 {
-	// TODO: Need something to associate bitmap with slot
-	AssetID imageId = 0xffff;
-
 	// const uint32_t cmdlist[]{
 	// 	MAKE_COPROC_CMD_WORD(CMD_LOADIMAGE),
 	// 	EVE_RAM_G + 0x40000,
@@ -628,7 +625,7 @@ const BitmapSlot* EveDisplay::loadImage(const ImageObject& image)
 	// }
 	// delete[] buffer;
 
-	auto slot = findBitmapSlot(imageId);
+	auto slot = findBitmapSlot(&image);
 	if(slot) {
 		// Already loaded
 		return slot;
@@ -688,7 +685,7 @@ const BitmapSlot* EveDisplay::loadImage(const ImageObject& image)
 		.stride = stride,
 		.width = width,
 		.height = height,
-		.id = imageId,
+		.object = &image,
 	};
 
 	return slot;

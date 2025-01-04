@@ -100,7 +100,7 @@ struct BitmapSlot {
 	uint16_t stride;			  // :12
 	uint16_t width;				  // :11
 	uint16_t height;			  // :11
-	AssetID id;					  ///< Associated asset, 0 is 'unassigned'
+	const void* object;			  ///< Associated object or asset
 };
 
 /**

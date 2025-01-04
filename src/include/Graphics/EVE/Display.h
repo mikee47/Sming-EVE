@@ -207,11 +207,14 @@ public:
 
 	const BitmapSlot* loadTypeface(const Font& font, uint8_t typefaceIndex, const GlyphOptions& options = {});
 
-	const BitmapSlot* getBitmapSlot(AssetID id) const;
-
-	const BitmapSlot* getTypefaceSlot(const TypeFace& typeface) const
+	const BitmapSlot* getSlot(const TypeFace& typeface) const
 	{
-		return getBitmapSlot(typeface.id());
+		return getBitmapSlot(&typeface);
+	}
+
+	const BitmapSlot* getSlot(const ImageObject& image) const
+	{
+		return getBitmapSlot(&image);
 	}
 
 	const BitmapSlot* loadImage(const ImageObject& image);
@@ -255,7 +258,8 @@ private:
 	static bool statusRequestComplete(HSPI::Request& req);
 
 	void cmdWrite(EVE::HostCommand cmd, uint8_t param);
-	BitmapSlot* findBitmapSlot(AssetID id);
+	const BitmapSlot* getBitmapSlot(const void* object) const;
+	BitmapSlot* findBitmapSlot(const void* object);
 	BitmapSlot* getFreeSlot();
 
 	/* Interrupt processing */
