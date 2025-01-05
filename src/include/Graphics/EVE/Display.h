@@ -261,6 +261,10 @@ private:
 	const BitmapSlot* getBitmapSlot(const void* object) const;
 	BitmapSlot* findBitmapSlot(const void* object);
 	BitmapSlot* getFreeSlot();
+	const BitmapSlot* loadPng(const PngImageObject& image);
+	const BitmapSlot* loadJpeg(const JpegImageObject& image, bool monochrome);
+	bool writeImageData(uint32_t address, const ImageObject& image, uint8_t options);
+	bool ensureCoproSpace(unsigned spaceRequired);
 
 	/* Interrupt processing */
 	static EveDisplay* displays[];

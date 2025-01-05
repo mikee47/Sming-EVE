@@ -341,8 +341,14 @@ void EveSurface::drawImage(const Rect& location, const ImageObject& object)
 	const Handle handle{1};
 	dl.save_context();
 	setHandle(handle);
+	if(slot->hasPalette) {
+		dl.palette_source(slot->paletteAddress());
+		// debug_i("IMG palette @ %p", slot->paletteAddress());
+	}
 	dl.bitmap_source(slot->bitmapAddress());
+	// debug_i("IMG bitmap @ %p", slot->bitmapAddress());
 	dl.bitmapLayout(slot->format, slot->stride, slot->height);
+	// debug_i("IMG layout %u, %u, %u x %u", slot->format, slot->stride, slot->width, slot->height);
 	dl.bitmapSize(EVE::BitmapFilter::NEAREST, EVE::BitmapWrap::BORDER, EVE::BitmapWrap::BORDER, scale * slot->width,
 				  scale * slot->height);
 	dl.bitmap_transform_a(1.0);

@@ -613,28 +613,159 @@ const BitmapSlot* EveDisplay::loadTypeface(const Font& font, uint8_t typefaceInd
 	return loadTypeface(*typeface, options);
 }
 
+const BitmapSlot* EveDisplay::loadPng(const PngImageObject& image)
+{
+	BitmapFormat format;
+	uint16_t width = image.width();
+	uint16_t height = image.height();
+	uint16_t stride = width;
+	switch(image.colorType()) {
+	case 0:
+		// Grayscale
+		format = BMF_L8;
+		break;
+	case 2:
+		// Truecolor, palette optional
+		format = BMF_RGB565;
+		stride *= 2;
+		break;
+	case 3:
+		// Indexed, palette required
+		format = image.hasTransparency() ? BMF_PALETTED4444 : BMF_PALETTED565;
+		break;
+	case 6:
+		// Truecolor and alpha, palette optional
+		format = BMF_ARGB4;
+		stride *= 2;
+		break;
+	default:
+		return nullptr;
+	}
+
+	auto slot = getFreeSlot();
+	if(slot == nullptr) {
+		return nullptr;
+	}
+
+	auto loadAddress = nextRamAddress;
+	if(!writeImageData(loadAddress, image, 0)) {
+		return nullptr;
+	}
+
+	*slot = BitmapSlot{
+		.address = loadAddress,
+		.format = format,
+		.stride = stride,
+		.width = width,
+		.height = height,
+		.hasPalette = image.paletteSize() != 0,
+		.paletteEntries = uint8_t((image.paletteSize() / 3) - 1),
+		.object = &image,
+	};
+
+	nextRamAddress = loadAddress + slot->paletteSize() + slot->bitmapSize();
+
+	debug_i("Loaded image @ 0x%06x, palette %u, bitmap %u", loadAddress, slot->paletteSize(), slot->bitmapSize());
+
+	return slot;
+}
+
+const BitmapSlot* EveDisplay::loadJpeg(const JpegImageObject& image, bool monochrome)
+{
+	auto slot = getFreeSlot();
+	if(slot == nullptr) {
+		return nullptr;
+	}
+
+	uint16_t width = image.width();
+	uint16_t height = image.height();
+	uint16_t stride;
+	BitmapFormat format;
+	if(monochrome) {
+		format = BMF_L8;
+		stride = width;
+	} else {
+		format = BMF_RGB565;
+		stride = width * 2;
+	}
+
+	auto loadAddress = nextRamAddress;
+	if(!writeImageData(loadAddress, image, monochrome ? EVE_OPT_MONO : 0)) {
+		return nullptr;
+	}
+
+	*slot = BitmapSlot{
+		.address = loadAddress,
+		.format = format,
+		.stride = stride,
+		.width = width,
+		.height = height,
+		.object = &image,
+	};
+
+	nextRamAddress = loadAddress + slot->bitmapSize();
+
+	debug_i("Loaded image @ 0x%06x, palette %u, bitmap %u", loadAddress, slot->paletteSize(), slot->bitmapSize());
+
+	return slot;
+}
+
+bool EveDisplay::writeImageData(uint32_t address, const ImageObject& image, uint8_t options)
+{
+	const uint32_t cmdlist[]{
+		MAKE_COPROC_CMD_WORD(CMD_LOADIMAGE),
+		address,
+		uint32_t(options | EVE_OPT_NODL),
+	};
+	write(REG_CMDB_WRITE, cmdlist, sizeof(cmdlist));
+
+	const size_t chunkSize = 4000;
+	auto buffer = new uint8_t[chunkSize];
+	int len;
+	while((len = image.readRaw(buffer, chunkSize)) > 0) {
+		// debug_i("loadImage(%d)", len);
+		if(!ensureCoproSpace(chunkSize)) {
+			return false;
+		}
+		write(REG_CMDB_WRITE, buffer, ALIGNUP4(len));
+	}
+	delete[] buffer;
+	return true;
+}
+
+bool EveDisplay::ensureCoproSpace(unsigned spaceRequired)
+{
+	if(spaceRequired + 4 > EVE_CMDFIFO_SIZE) {
+		// Can never succeed
+		return false;
+	}
+	OneShotFastMs timer;
+	timer.reset<400>();
+	while(read32(REG_CMDB_SPACE) < spaceRequired) {
+		if(timer.expired()) {
+			return false;
+		}
+	}
+	return true;
+}
+
 const BitmapSlot* EveDisplay::loadImage(const ImageObject& image)
 {
-	// const uint32_t cmdlist[]{
-	// 	MAKE_COPROC_CMD_WORD(CMD_LOADIMAGE),
-	// 	EVE_RAM_G + 0x40000,
-	// 	EVE_OPT_NODL,
-	// };
-	// tft.write(REG_CMDB_WRITE, cmdlist, sizeof(cmdlist));
-
-	// const size_t chunkSize = 4000;
-	// auto buffer = new uint8_t[chunkSize];
-	// int len;
-	// while((len = file.read(buffer, chunkSize)) > 0) {
-	// 	debug_i("loadImage(%d)", len);
-	// 	tft.write(REG_CMDB_WRITE, buffer, ALIGNUP4(len));
-	// }
-	// delete[] buffer;
-
 	auto slot = findBitmapSlot(&image);
 	if(slot) {
 		// Already loaded
 		return slot;
+	}
+
+	auto imageFormat = image.getImageFormat();
+	switch(imageFormat) {
+	case ImageFormat::JPEG:
+		return loadJpeg(reinterpret_cast<const JpegImageObject&>(image), false);
+	case ImageFormat::PNG:
+		return loadPng(reinterpret_cast<const PngImageObject&>(image));
+	case ImageFormat::BMP:
+	case ImageFormat::RAW:
+		break;
 	}
 
 	slot = getFreeSlot();
@@ -644,24 +775,27 @@ const BitmapSlot* EveDisplay::loadImage(const ImageObject& image)
 
 	auto loadAddress = nextRamAddress;
 
+	bool makeTransparent = false;
+	const auto format = BMF_RGB565;
+	const auto pixelFormat = PixelFormat::RGB565;
+
+	/* TODO: Add parameter to optionally select colour to make transparent.
+	 * For portability this should be in RGB24 format.
+	 * Further, this should probably be expressed as a range.
+	 *
+	 * Another option is to use ARGB2, ARGB4 or PALETTED4444.
+	 */
+	// format = BMF_ARGB1555;
+	// makeTransparent = true;
+	// transparentColorValue = convertToRGB565(transparentColor);
+
 	auto width = image.width();
 	auto height = image.height();
-	auto pixelFormat = image.getPixelFormat();
 	const uint8_t bytesPerPixel = getBytesPerPixel(pixelFormat);
 	const uint16_t stride = width * bytesPerPixel;
 
 	const unsigned bufSize = stride;
 	debug_i("bufSize %u, pixelFormat 0x%02x, stride %u, size (%u, %u)", bufSize, pixelFormat, stride, width, height);
-
-	BitmapFormat format;
-	switch(pixelFormat) {
-	case PixelFormat::RGB565:
-		format = BMF_ARGB1555; // BMF_RGB565;
-		break;
-	default:
-		debug_e("Unsupported pixel format 0x%02x", pixelFormat);
-		return nullptr;
-	}
 
 	auto buffer = std::make_unique<uint8_t[]>(bufSize);
 	auto addr = loadAddress;
@@ -671,17 +805,17 @@ const BitmapSlot* EveDisplay::loadImage(const ImageObject& image)
 		loc.pos.y = row;
 		image.readPixels(loc, pixelFormat, buffer.get(), width);
 		for(unsigned i = 0; i < width; ++i) {
-			PixelBuffer src{.u8 = {buffer[i * 2 + 1], buffer[i * 2]}};
-			PixelBuffer dst{.argb1555 = {.b = src.rgb565.b, .g = src.rgb565.g >> 1, .r = src.rgb565.r}};
-			dst.argb1555.a = (src.packed.value == 0xffff) ? 0 : 1;
-			buffer[i * 2] = dst.u8[0];
-			buffer[i * 2 + 1] = dst.u8[1];
-			// std::swap(buffer[i * 2], buffer[i * 2 + 1]);
+			std::swap(buffer[i * 2], buffer[i * 2 + 1]);
+			if(makeTransparent) {
+				PixelBuffer src{.u8 = {buffer[i * 2], buffer[i * 2 + 1]}};
+				PixelBuffer dst{.argb1555 = {.b = src.rgb565.b, .g = uint8_t(src.rgb565.g >> 1), .r = src.rgb565.r}};
+				dst.argb1555.a = (src.packed.value == 0xffff) ? 0 : 1;
+				buffer[i * 2] = dst.u8[0];
+				buffer[i * 2 + 1] = dst.u8[1];
+			}
 		}
 		write(addr, buffer.get(), stride);
 	}
-
-	debug_i("Loaded image @ 0x%06x, %u bytes", loadAddress, addr - loadAddress);
 
 	nextRamAddress = addr;
 
@@ -693,6 +827,8 @@ const BitmapSlot* EveDisplay::loadImage(const ImageObject& image)
 		.height = height,
 		.object = &image,
 	};
+
+	debug_i("Loaded image @ 0x%06x, %u bytes", loadAddress, addr - loadAddress);
 
 	return slot;
 }
