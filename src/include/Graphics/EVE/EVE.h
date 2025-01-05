@@ -678,6 +678,16 @@ enum Register : uint32_t {
 	REG_MEDIAFIFO_WRITE = 0x00309018,
 };
 
+// As stored in ROM
+struct RawFontMetrics {
+	uint8_t char_width[128]; ///< Width of each character glyph in pixels
+	BitmapFormat format;	 ///< Bitmap format of glyphs
+	uint32_t stride;		 ///< Font line stride
+	uint32_t width;			 ///< Font width in pixels
+	uint32_t height;		 ///< Font height in pixels
+	uint32_t bitmap;		 ///< Starting ROM address for bitmap
+};
+
 /* Macros for static display list generation */
 
 /**

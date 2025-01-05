@@ -451,11 +451,13 @@ const BitmapSlot* EveDisplay::loadTypeface(const TypeFace& typeface, const Glyph
 		return nullptr;
 	}
 
+	bool wantMetrics = options.style[FontStyle::Block];
+
 	/*
 	To conserve storage glyph bitmaps differ in size, which requires extra setup for each character.
 	We can expand the glyphs to a consistent size for more efficient display list construction.
 	*/
-	auto loadAddress = nextRamAddress;
+	auto loadAddress = ALIGNUP4(nextRamAddress);
 	// Determine minimum bounding rect for all glyphs
 	uint8_t alpha{};
 	uint8_t width{0};
@@ -478,7 +480,7 @@ const BitmapSlot* EveDisplay::loadTypeface(const TypeFace& typeface, const Glyph
 			height = std::max(height, metrics.height);
 		}
 	}
-	if(options.style[FontStyle::Block]) {
+	if(wantMetrics) {
 		height = typeface.height();
 	}
 
@@ -501,13 +503,16 @@ const BitmapSlot* EveDisplay::loadTypeface(const TypeFace& typeface, const Glyph
 		.stride = stride,
 		.width = width,
 		.height = height,
-		.bitmap = loadAddress,
+		.bitmap = loadAddress + sizeof(RawFontMetrics),
 	};
 
 	auto buffer = std::make_unique<uint8_t[]>(bufSize);
 	auto glyphDataSize = (width * height + pixelsPerByte - 1) / pixelsPerByte;
 	auto glyphData = std::make_unique<uint8_t[]>(glyphDataSize);
 	auto addr = loadAddress;
+	if(wantMetrics) {
+		addr = fontMetrics.bitmap;
+	}
 	for(blockIndex = 0, cell = 1; cell < 128;) {
 		GlyphBlock block = typeface.getBlock(blockIndex++);
 		if(!block.length) {
@@ -522,7 +527,7 @@ const BitmapSlot* EveDisplay::loadTypeface(const TypeFace& typeface, const Glyph
 			glyph->readRaw(glyphData.get(), glyphDataSize);
 			uint8_t* src = glyphData.get();
 			auto dstrow = buffer.get();
-			if(options.style[FontStyle::Block]) {
+			if(wantMetrics) {
 				/* Negative x offsets can be found in some 'j' characters, for example,
 				 * so the tail curls underneath the preceding letter slightly.
 				 * In block mode the glyph must be drawn at offset 0 so we must increase
@@ -535,7 +540,7 @@ const BitmapSlot* EveDisplay::loadTypeface(const TypeFace& typeface, const Glyph
 				dstrow += yoff * stride;
 			}
 			if(bitsPerPixel == 8) {
-				if(options.style[FontStyle::Block]) {
+				if(wantMetrics) {
 					dstrow += std::min(int8_t(0), metrics.xOffset);
 				}
 				for(unsigned y = 0; y < metrics.height; ++y, src += metrics.width, dstrow += stride) {
@@ -549,7 +554,7 @@ const BitmapSlot* EveDisplay::loadTypeface(const TypeFace& typeface, const Glyph
 					auto dst = dstrow;
 					uint8_t dstbyte{0};
 					uint8_t dstshift = 8;
-					if(options.style[FontStyle::Block] && metrics.xOffset > 0) {
+					if(wantMetrics && metrics.xOffset > 0) {
 						dst += metrics.xOffset / pixelsPerByte;
 						dstshift = 8 - ((metrics.xOffset * bitsPerPixel) % 8);
 					}
@@ -580,18 +585,19 @@ const BitmapSlot* EveDisplay::loadTypeface(const TypeFace& typeface, const Glyph
 	debug_i("Loaded face %u @ 0x%06x, %u bytes, bitsPerPixel %u", typeface.id(), loadAddress, addr - loadAddress,
 			bitsPerPixel);
 
-	auto metricsAddress = ALIGNUP4(addr);
-	write(metricsAddress, &fontMetrics, sizeof(fontMetrics));
+	if(wantMetrics) {
+		write(loadAddress, &fontMetrics, sizeof(fontMetrics));
+	}
 
-	nextRamAddress = metricsAddress + sizeof(fontMetrics);
+	nextRamAddress = addr;
 
 	*slot = BitmapSlot{
-		.address = fontMetrics.bitmap,
+		.address = loadAddress,
 		.format = fontMetrics.format,
-		.metrics = metricsAddress,
 		.stride = stride,
 		.width = width,
 		.height = height,
+		.hasMetrics = wantMetrics,
 		.object = &typeface,
 	};
 

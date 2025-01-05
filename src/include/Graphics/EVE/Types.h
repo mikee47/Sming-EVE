@@ -94,14 +94,52 @@ template <uint8_t precision> int operator/(int value, FixedTemplate<precision> d
  * @brief Details for loaded bitmap instance
  */
 struct BitmapSlot {
-	uint32_t address : 24;		  ///< Location of asset in ROM/RAMG
-	EVE::BitmapFormat format : 8; // :5
-	uint32_t metrics : 24;		  ///< Location of loaded font metrics for soft fonts
-	uint16_t stride;			  // :12
-	uint16_t width;				  // :11
-	uint16_t height;			  // :11
-	const void* object;			  ///< Associated object or asset
+	uint32_t address : 24; ///< Location of asset in ROM/RAMG
+	EVE::BitmapFormat format : 8;
+	uint16_t stride;
+	uint16_t width;
+	uint16_t height;
+	uint16_t hasMetrics : 1; ///< Set if font metrics block precedes bitmap information
+	uint16_t hasPalette : 1; ///< Set if paletteSize valid
+	uint8_t paletteEntries;  ///< entries in palette - 1
+	const void* object;		 ///< Associated object or asset
+
+	uint32_t bitmapAddress() const
+	{
+		uint32_t addr = address;
+		if(hasMetrics) {
+			addr += sizeof(RawFontMetrics);
+		}
+		if(hasPalette) {
+			addr += paletteSize();
+		}
+		return addr;
+	}
+
+	uint32_t paletteAddress() const
+	{
+		if(!hasPalette) {
+			return 0;
+		}
+		uint32_t addr = address;
+		if(hasMetrics) {
+			addr += sizeof(RawFontMetrics);
+		}
+		return addr;
+	}
+
+	uint16_t paletteSize() const
+	{
+		return hasPalette ? (1 + paletteEntries) * 2 : 0;
+	}
+
+	uint32_t bitmapSize() const
+	{
+		return stride * height;
+	}
 };
+
+static_assert(sizeof(BitmapSlot) == 16, "Bad BitmapSlot struct");
 
 /**
  * @brief Processed multi-touch values

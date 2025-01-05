@@ -41,16 +41,6 @@ struct FontMetrics {
 	}
 };
 
-// As stored in ROM
-struct RawFontMetrics {
-	uint8_t char_width[128]; ///< Width of each character glyph in pixels
-	BitmapFormat format;	 ///< Bitmap format of glyphs
-	uint32_t stride;		 ///< Font line stride
-	uint32_t width;			 ///< Font width in pixels
-	uint32_t height;		 ///< Font height in pixels
-	uint32_t bitmap;		 ///< Starting ROM address for bitmap
-};
-
 static constexpr unsigned ROM_FONT_MIN = 16;
 static constexpr unsigned ROM_FONT_MAX = 34;
 
@@ -92,8 +82,8 @@ public:
 
 private:
 	BitmapSlot slot{};
-	uint8_t index:6;
-	uint8_t alpha: 2;
+	uint8_t index : 6;
+	uint8_t alpha : 2;
 	uint8_t firstchar{};
 	uint8_t numchars{};
 	uint8_t mdescent;

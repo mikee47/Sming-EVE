@@ -341,7 +341,7 @@ void EveSurface::drawImage(const Rect& location, const ImageObject& object)
 	const Handle handle{1};
 	dl.save_context();
 	setHandle(handle);
-	dl.bitmap_source(slot->address);
+	dl.bitmap_source(slot->bitmapAddress());
 	dl.bitmapLayout(slot->format, slot->stride, slot->height);
 	dl.bitmapSize(EVE::BitmapFilter::NEAREST, EVE::BitmapWrap::BORDER, EVE::BitmapWrap::BORDER, scale * slot->width,
 				  scale * slot->height);
@@ -387,7 +387,7 @@ void EveSurface::drawText(const Rect& location, const TextObject& object)
 				break;
 			}
 			setHandle(fontHandle);
-			dl.bitmap_source(slot->address);
+			dl.bitmap_source(slot->bitmapAddress());
 			dl.bitmap_layout(slot->format, slot->stride, slot->height);
 			auto fontScaleX = scale * options.scale.scaleX();
 			auto fontScaleY = scale * options.scale.scaleY();
