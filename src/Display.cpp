@@ -155,7 +155,7 @@ bool EveDisplay::enableInterrupts(uint8_t irqPin, EventCallback callback)
 	eventCallback = callback;
 
 	// Pre-configure request for reading
-	prepareRead(statusRequest, EVE::REG_INT_FLAGS);
+	prepareRead(statusRequest, REG_INT_FLAGS);
 	statusRequest.setAsync(statusRequestComplete, this);
 
 	// Configure controller
@@ -203,7 +203,7 @@ void IRAM_ATTR EveDisplay::interruptHandler()
 		System.queueCallback(
 			[](void* param) {
 				auto self = static_cast<EveDisplay*>(param);
-				self->statusRequest.addr = EVE::REG_INT_FLAGS;
+				self->statusRequest.addr = REG_INT_FLAGS;
 				self->statusRequest.in.set8(0);
 				self->execute(self->statusRequest);
 			},
@@ -233,7 +233,7 @@ bool IRAM_ATTR EveDisplay::statusRequestComplete(HSPI::Request& req)
 		if(events & mask) {
 			self->touchEvents = events & mask;
 			events -= mask;
-			req.addr = EVE::REG_CTOUCH_TOUCH1_XY;
+			req.addr = REG_CTOUCH_TOUCH1_XY;
 			req.in.set(&self->rawTouchData, sizeof(RawTouchData));
 			requestDone = false;
 			self->readState = ReadState::touch;
@@ -244,7 +244,7 @@ bool IRAM_ATTR EveDisplay::statusRequestComplete(HSPI::Request& req)
 	}
 
 	case ReadState::touch:
-		req.addr = EVE::REG_TRACKER;
+		req.addr = REG_TRACKER;
 		req.in.set(&self->rawTrackerData, sizeof(RawTrackerData));
 		self->readState = ReadState::tracker;
 		requestDone = false;
@@ -271,7 +271,7 @@ bool IRAM_ATTR EveDisplay::statusRequestComplete(HSPI::Request& req)
 	}
 
 	if(requestDone && self->statusChangePending) {
-		req.addr = EVE::REG_INT_FLAGS;
+		req.addr = REG_INT_FLAGS;
 		req.in.set8(0);
 		self->statusChangePending = false;
 		self->readState = ReadState::status;
@@ -309,7 +309,7 @@ bool EveDisplay::setIoMode(HSPI::IoMode mode)
 	return MemoryDevice::setIoMode(mode);
 }
 
-void EveDisplay::cmdWrite(EVE::HostCommand cmd, uint8_t param)
+void EveDisplay::cmdWrite(HostCommand cmd, uint8_t param)
 {
 	HSPI::Request req;
 	req.setCommand8(uint8_t(cmd));
@@ -491,11 +491,11 @@ const BitmapSlot* EveDisplay::loadTypeface(const TypeFace& typeface, const Glyph
 	const unsigned bufSize = stride * height;
 	debug_i("bufSize %u, yadv %u, stride %u, size (%u, %u)", bufSize, typeface.height(), stride, width, height);
 
-	const EVE::BitmapFormat formats[]{
-		EVE::BMF_L1,
-		EVE::BMF_L2,
-		EVE::BMF_L4,
-		EVE::BMF_L8,
+	const BitmapFormat formats[]{
+		BMF_L1,
+		BMF_L2,
+		BMF_L4,
+		BMF_L8,
 	};
 
 	RawFontMetrics fontMetrics{
