@@ -39,7 +39,7 @@ void AudioFifo::fillBuffer(uint32_t readpos)
 	if(size_t(len) < chunkSize1 + chunkSize2) {
 		memset(&buffer[len], 0, chunkSize1 + chunkSize2 - size_t(len));
 	}
-	debug_i("Write(0x%04x, %d), readpos %d...", writepos, len, int(readpos));
+	debug_d("Write(0x%04x, %d), readpos %d...", writepos, len, int(readpos));
 	display.write(requests[0], fifoAddress + writepos, buffer, chunkSize1);
 	if(chunkSize2) {
 		display.write(requests[1], fifoAddress, &buffer[chunkSize1], chunkSize2);
@@ -59,10 +59,11 @@ bool IRAM_ATTR AudioFifo::readPosComplete(HSPI::Request& req)
 	return true;
 }
 
-void AudioFifo::play(Stream& source, EVE::SampleFormat format, unsigned frequency)
+void AudioFifo::play(IDataSourceStream& source, EVE::SampleFormat format, unsigned frequency)
 {
 	stop();
 	this->source = &source;
+	bytesPerSecond = frequency;
 
 	writepos = 0;
 	fillBuffer(0);
@@ -85,6 +86,7 @@ void AudioFifo::play(Stream& source, EVE::SampleFormat format, unsigned frequenc
 	unsigned interval = 1000 * bufferSize / frequency;
 	if(format == EVE::SampleFormat::ADPCM) {
 		interval *= 2;
+		bytesPerSecond *= 2;
 	}
 	// Refill buffer at around 25% full
 	interval = 3 * interval / 4;
@@ -98,11 +100,19 @@ void AudioFifo::play(Stream& source, EVE::SampleFormat format, unsigned frequenc
 	timer.start();
 }
 
+void AudioFifo::seek(int seconds)
+{
+	if(bytesPerSecond) {
+		source->seekFrom(seconds * bytesPerSecond, SeekOrigin::Current);
+	}
+}
+
 void AudioFifo::stop()
 {
 	timer.stop();
 	display.write32(EVE::REG_PLAYBACK_LENGTH, 0);
 	display.write8(EVE::REG_PLAYBACK_PLAY, 1);
+	bytesPerSecond = 0;
 }
 
 } // namespace Graphics::EVE

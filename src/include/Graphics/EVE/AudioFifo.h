@@ -12,7 +12,9 @@ public:
 	{
 	}
 
-	void play(Stream& source, EVE::SampleFormat format, unsigned frequency);
+	void play(IDataSourceStream& source, EVE::SampleFormat format, unsigned frequency);
+
+	void seek(int seconds);
 
 	void stop();
 
@@ -21,12 +23,13 @@ private:
 	uint32_t fifoAddress;
 	uint32_t fifoSize;
 	static constexpr uint32_t bufferSize{4092};
-	Stream* source{};
+	IDataSourceStream* source{};
 	uint8_t buffer[bufferSize];
 	HSPI::Request requests[2];
 	HSPI::Request readPosRequest;
 	uint32_t writepos;
 	SimpleTimer timer;
+	unsigned bytesPerSecond{0};
 
 	void fillBuffer(uint32_t readpos);
 	static bool IRAM_ATTR readPosComplete(HSPI::Request& req);
