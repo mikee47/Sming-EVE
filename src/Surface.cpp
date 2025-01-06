@@ -339,7 +339,6 @@ void EveSurface::drawImage(const Rect& location, const ImageObject& object)
 			slot->width, slot->height);
 	auto scale = display.getScale();
 	const Handle handle{1};
-	dl.save_context();
 	setHandle(handle);
 	if(slot->hasPalette) {
 		dl.palette_source(slot->paletteAddress());
@@ -357,7 +356,6 @@ void EveSurface::drawImage(const Rect& location, const ImageObject& object)
 	dl.cell(0);
 	dl.color_rgb(255, 255, 255);
 	vertex(location.topLeft(), handle, 0);
-	dl.restore_context();
 }
 
 void EveSurface::drawText(const Rect& location, const TextObject& object)
