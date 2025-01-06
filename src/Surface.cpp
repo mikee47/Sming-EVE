@@ -293,7 +293,7 @@ void EveSurface::setPointSize(PointSize size)
 		return;
 	}
 	context.pointSize = size;
-	dl.point_size(size * display.getScale());
+	dl.point_size(round(size * display.getScale()));
 }
 
 void EveSurface::setLineWidth(LineWidth width)
@@ -303,22 +303,22 @@ void EveSurface::setLineWidth(LineWidth width)
 		return;
 	}
 	context.lineWidth = width;
-	dl.line_width(width * display.getScale());
+	dl.line_width(round(width * display.getScale()));
 }
 
 void EveSurface::vertex(Point pt)
 {
 	auto scale = display.getScale();
-	pt.x = pt.x * scale;
-	pt.y = pt.y * scale;
+	pt.x = round(pt.x * scale);
+	pt.y = round(pt.y * scale);
 	dl.vertex2f(pt);
 }
 
 void EveSurface::vertex(Point pt, EVE::Handle handle, EVE::Cell cell)
 {
 	auto scale = display.getScale();
-	pt.x = pt.x * scale;
-	pt.y = pt.y * scale;
+	pt.x = round(pt.x * scale);
+	pt.y = round(pt.y * scale);
 	if(unsigned(pt.x) <= 511 && unsigned(pt.y) <= 511) {
 		dl.vertex2ii(pt.x, pt.y, handle, cell);
 	} else {
@@ -349,10 +349,10 @@ void EveSurface::drawImage(const Rect& location, const ImageObject& object)
 	// debug_i("IMG bitmap @ %p", slot->bitmapAddress());
 	dl.bitmapLayout(slot->format, slot->stride, slot->height);
 	// debug_i("IMG layout %u, %u, %u x %u", slot->format, slot->stride, slot->width, slot->height);
-	dl.bitmapSize(EVE::BitmapFilter::NEAREST, EVE::BitmapWrap::BORDER, EVE::BitmapWrap::BORDER, scale * slot->width,
-				  scale * slot->height);
-	dl.bitmap_transform_a(1.0);
-	dl.bitmap_transform_e(1.0);
+	dl.bitmapSize(EVE::BitmapFilter::NEAREST, EVE::BitmapWrap::BORDER, EVE::BitmapWrap::BORDER,
+				  round(scale * slot->width), round(scale * slot->height));
+	dl.bitmap_transform_a(1 / scale);
+	dl.bitmap_transform_e(1 / scale);
 	begin(EVE::GP_BITMAPS);
 	dl.cell(0);
 	dl.color_rgb(255, 255, 255);
@@ -395,12 +395,12 @@ void EveSurface::drawText(const Rect& location, const TextObject& object)
 			setHandle(fontHandle);
 			dl.bitmap_source(slot->bitmapAddress());
 			dl.bitmap_layout(slot->format, slot->stride, slot->height);
-			auto fontScaleX = scale * options.scale.scaleX();
-			auto fontScaleY = scale * options.scale.scaleY();
+			Fixed8 fontScaleX = scale * options.scale.scaleX();
+			Fixed8 fontScaleY = scale * options.scale.scaleY();
 			dl.bitmap_size(EVE::BitmapFilter::NEAREST, EVE::BitmapWrap::BORDER, EVE::BitmapWrap::BORDER,
-						   fontScaleX * slot->width, fontScaleY * slot->height);
-			dl.bitmap_transform_a(1.0 / fontScaleX);
-			dl.bitmap_transform_e(1.0 / fontScaleY);
+						   round(fontScaleX * slot->width), round(fontScaleY * slot->height));
+			dl.bitmap_transform_a(1 / fontScaleX);
+			dl.bitmap_transform_e(1 / fontScaleY);
 			break;
 		}
 		case TextObject::Element::Kind::Color: {

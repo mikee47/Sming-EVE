@@ -71,23 +71,37 @@ template <uint8_t precision> struct FixedTemplate {
 		return double(value) / scalar;
 	}
 
-	int operator*(int num) const
+	FixedTemplate operator*(int num) const
 	{
-		return (num * value + scalar / 2) / scalar;
+		FixedTemplate f;
+		f.value = num * value;
+		return f;
+	}
+
+	int round() const
+	{
+		return (value + scalar / 2) / scalar;
 	}
 };
 
 using Fixed8 = FixedTemplate<8>;
 using Fixed16 = FixedTemplate<16>;
 
-template <uint8_t precision> int operator*(int value, FixedTemplate<precision> div)
+inline Fixed8 operator*(int value, Fixed8 f)
 {
-	return div * value;
+	return f * value;
 }
 
-template <uint8_t precision> int operator/(int value, FixedTemplate<precision> div)
+inline Fixed8 operator/(int value, const Fixed8& div)
 {
-	return (value * div.scalar + div.value / 2) / div.value;
+	Fixed8 f;
+	f.value = value * 0x10000ULL / div.value;
+	return f;
+}
+
+template <uint8_t precision> int round(FixedTemplate<precision> f)
+{
+	return f.round();
 }
 
 /*

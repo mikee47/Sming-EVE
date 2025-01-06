@@ -385,8 +385,8 @@ bool EveDisplay::scroll(int16_t y)
 Size EveDisplay::getSize() const
 {
 	auto size = nativeSize;
-	size.w = size.w / scale;
-	size.h = size.h / scale;
+	size.w = round(size.w / scale);
+	size.h = round(size.h / scale);
 	return size;
 }
 
