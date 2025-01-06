@@ -724,7 +724,7 @@ bool EveDisplay::writeImageData(uint32_t address, const ImageObject& image, uint
 	int len;
 	while((len = image.readRaw(buffer, chunkSize)) > 0) {
 		// debug_i("loadImage(%d)", len);
-		if(!ensureCoproSpace(chunkSize)) {
+		if(!ensureCoproSpace(len)) {
 			return false;
 		}
 		write(REG_CMDB_WRITE, buffer, ALIGNUP4(len));
@@ -775,19 +775,22 @@ const BitmapSlot* EveDisplay::loadImage(const ImageObject& image)
 
 	auto loadAddress = nextRamAddress;
 
-	bool makeTransparent = false;
-	const auto format = BMF_RGB565;
-	const auto pixelFormat = PixelFormat::RGB565;
-
-	/* TODO: Add parameter to optionally select colour to make transparent.
-	 * For portability this should be in RGB24 format.
-	 * Further, this should probably be expressed as a range.
-	 *
-	 * Another option is to use ARGB2, ARGB4 or PALETTED4444.
-	 */
-	// format = BMF_ARGB1555;
-	// makeTransparent = true;
-	// transparentColorValue = convertToRGB565(transparentColor);
+	auto pixelFormat = image.getPixelFormat();
+	BitmapFormat format;
+	switch(image.getPixelFormat()) {
+	case PixelFormat::ARGB1555:
+		format = BMF_ARGB1555;
+		break;
+	case PixelFormat::ARGB2:
+		format = BMF_ARGB2;
+		break;
+	case PixelFormat::ARGB4:
+		format = BMF_ARGB4;
+		break;
+	default:
+		format = BMF_RGB565;
+		pixelFormat = PixelFormat::RGB565;
+	}
 
 	auto width = image.width();
 	auto height = image.height();
@@ -806,13 +809,6 @@ const BitmapSlot* EveDisplay::loadImage(const ImageObject& image)
 		image.readPixels(loc, pixelFormat, buffer.get(), width);
 		for(unsigned i = 0; i < width; ++i) {
 			std::swap(buffer[i * 2], buffer[i * 2 + 1]);
-			if(makeTransparent) {
-				PixelBuffer src{.u8 = {buffer[i * 2], buffer[i * 2 + 1]}};
-				PixelBuffer dst{.argb1555 = {.b = src.rgb565.b, .g = uint8_t(src.rgb565.g >> 1), .r = src.rgb565.r}};
-				dst.argb1555.a = (src.packed.value == 0xffff) ? 0 : 1;
-				buffer[i * 2] = dst.u8[0];
-				buffer[i * 2 + 1] = dst.u8[1];
-			}
 		}
 		write(addr, buffer.get(), stride);
 	}
